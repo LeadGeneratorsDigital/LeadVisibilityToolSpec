@@ -1,0 +1,56 @@
+@import "@fontsource-variable/newsreader";
+@import "@fontsource-variable/ibm-plex-sans";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/700.css";
+@import "tailwindcss";
+
+/* British editorial design system: Newsreader display, Oxford navy, crimson for alerts only. */
+@theme {
+  /* Mono is only for ranking positions; dates, emails and counts use the sans with tabular figures. */
+  --font-sans: "IBM Plex Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Newsreader Variable", Georgia, "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Oxford navy is the primary; crimson is reserved for alerts and the masthead rule. */
+  --color-brand-50: #eef2f8;
+  --color-brand-100: #d7e3fb;
+  --color-brand-500: #3c475a;
+  --color-brand-600: #24324a;
+  --color-brand-700: #111d2e;
+  --color-brand-800: #1e293b;
+  --color-brand-900: #111d2e;
+
+  --color-crimson: #9b111e;
+  --color-crimson-soft: #fef2f2;
+
+  --color-canvas: #faf8f5;
+  --color-panel: #f5f3f0;
+  --color-panel-strong: #efeeeb;
+
+  --color-visible: #065f46;
+  --color-visible-soft: #ecfdf5;
+  --color-visible-bar: #047857;
+  --color-partly: #92400e;
+  --color-partly-soft: #fffbeb;
+  --color-partly-bar: #d97706;
+  --color-invisible: #9b111e;
+  --color-invisible-soft: #fef2f2;
+  --color-invisible-bar: #be123c;
+}
+
+body {
+  @apply bg-canvas font-sans text-slate-900 antialiased;
+}
+
+::selection {
+  @apply bg-brand-100;
+}
+
+.eyebrow {
+  @apply text-[11px] font-semibold tracking-[0.06em] text-slate-500 uppercase;
+}
+
+/* Tertiary "utility" action: uppercase text button, underline on hover. */
+.text-action {
+  @apply inline-flex items-center gap-1 rounded-sm text-[11px] font-semibold tracking-[0.06em] text-brand-700 uppercase hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:opacity-45 [&_svg]:h-3.5 [&_svg]:w-3.5;
+}

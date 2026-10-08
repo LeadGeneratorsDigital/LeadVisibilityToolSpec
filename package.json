@@ -1,0 +1,13 @@
+{
+  "name": "lead-visibility-tool",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.2",
+  "scripts": {
+    "dev": "pnpm --parallel --filter ./apps/* dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "create-user": "pnpm --filter @lvt/api create-user"
+  }
+}
