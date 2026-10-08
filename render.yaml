@@ -1,0 +1,30 @@
+# API for the Lead Visibility Tool (spec section 3: Render.com). The web app deploys to Vercel from apps/web.
+services:
+  - type: web
+    name: lead-visibility-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    # NODE_ENV=production makes pnpm skip devDependencies, but the API runs through tsx.
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false
+    startCommand: pnpm --filter @lvt/api start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      # Demo deploy on mock DataForSEO; set DATAFORSEO_MODE=live and remove this once the real login exists.
+      - key: ALLOW_MOCKS
+        value: "true"
+      - key: DATAFORSEO_MODE
+        value: mock
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # Comma-separated; set to the Vercel production URL, e.g. https://lead-visibility.vercel.app
+      - key: CORS_ORIGIN
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
