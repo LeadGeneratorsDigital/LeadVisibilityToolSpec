@@ -105,7 +105,7 @@ export function ImportLeadsDialog({ open, onOpenChange }: { open: boolean; onOpe
             <Button variant="ghost" onClick={() => close(false)}>
               Cancel
             </Button>
-            <Button onClick={() => run.mutate()} disabled={!summary || summary.leads === 0 || run.isPending}>
+            <Button onClick={() => run.mutate()} loading={run.isPending} disabled={!summary || summary.leads === 0}>
               <Upload /> {run.isPending ? "Importing..." : `Import ${summary?.leads ?? 0} lead${summary?.leads === 1 ? "" : "s"}`}
             </Button>
           </>

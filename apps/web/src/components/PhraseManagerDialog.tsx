@@ -3,6 +3,7 @@ import { Archive, ArrowDown, ArrowUp, Check, Info, Pencil, Plus, Trash2 } from "
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { data } from "@/lib/data";
@@ -68,20 +69,29 @@ export function PhraseManagerDialog({
     run.mutate(() => data.swapSortOrder(table, first, second));
   };
 
-  const archivePhrase = (phrase: Phrase) => {
-    if (confirm(`Stop tracking "${phrase.phrase_text}"? Its ranking history is kept, and adding the phrase again brings it back.`)) {
-      run.mutate(() => data.archivePhrase(phrase.id));
-    }
-  };
+  const { confirm, dialog: confirmDialog } = useConfirm();
+
+  const archivePhrase = (phrase: Phrase) =>
+    confirm({
+      title: "Stop tracking this phrase?",
+      description: `"${phrase.phrase_text}" will no longer be pulled. Its ranking history is kept, and adding the phrase again brings it back.`,
+      confirmLabel: "Stop tracking",
+      onConfirm: () => run.mutate(() => data.archivePhrase(phrase.id)),
+    });
 
   const addPhrase = (groupId: string | null, text: string, sortOrder: number) =>
     run.mutate(async () => {
       if ((await data.addPhrase(leadId, groupId, text, sortOrder)) === "restored") toast.success(`"${text}" is tracked again, with its ranking history`);
     });
 
-  const removeGroup = (group: BuyerGroup) => {
-    if (confirm(`Delete the group "${group.name}"? Its phrases are kept as ungrouped phrases.`)) run.mutate(() => data.deleteBuyerGroup(group.id));
-  };
+  const removeGroup = (group: BuyerGroup) =>
+    confirm({
+      title: "Delete this buyer group?",
+      description: `"${group.name}" will be deleted. Its phrases are kept as ungrouped phrases.`,
+      confirmLabel: "Delete group",
+      destructive: true,
+      onConfirm: () => run.mutate(() => data.deleteBuyerGroup(group.id)),
+    });
 
   const phraseList = (list: Phrase[], groupId: string | null) => (
     <>
@@ -194,6 +204,7 @@ export function PhraseManagerDialog({
             </div>
           ) : null}
         </div>
+        {confirmDialog}
       </DialogContent>
     </Dialog>
   );

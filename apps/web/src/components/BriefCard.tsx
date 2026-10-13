@@ -69,7 +69,7 @@ export function BriefCard({ lead, draft, onDraftChange }: { lead: Lead; draft: s
             <button type="button" className="text-action text-slate-700" onClick={() => onDraftChange(lead.brief)}>
               Discard
             </button>
-            <Button size="sm" disabled={save.isPending} onClick={() => save.mutate()}>
+            <Button size="sm" loading={save.isPending} onClick={() => save.mutate()}>
               {save.isPending ? "Saving..." : "Save brief"}
             </Button>
           </div>
@@ -85,7 +85,7 @@ export function BriefCard({ lead, draft, onDraftChange }: { lead: Lead; draft: s
               <Button variant="secondary" disabled={merge.isPending} onClick={() => setNotesOpen(false)}>
                 Cancel
               </Button>
-              <Button disabled={!notes.trim() || merge.isPending} onClick={() => merge.mutate()}>
+              <Button loading={merge.isPending} disabled={!notes.trim()} onClick={() => merge.mutate()}>
                 <Sparkles /> {merge.isPending ? "Merging..." : "Merge into brief"}
               </Button>
             </>

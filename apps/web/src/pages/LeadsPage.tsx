@@ -76,10 +76,11 @@ export function LeadsPage() {
   const pullAll = useMutation({
     mutationFn: api.pullAll,
     onSuccess: (result) => {
-      void runs.refresh();
       const skipped = result.skipped.length ? `, ${result.skipped.length} skipped` : "";
       const reasons = [...new Set(result.skipped.map((s) => s.reason))].join("; ");
       toast.success(`Pulling rankings for ${result.started.length} active lead(s)${skipped}`, reasons ? { description: reasons } : undefined);
+      // Returned so the button keeps spinning until the runs show as running.
+      return runs.refresh();
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -99,9 +100,9 @@ export function LeadsPage() {
           <p className="mt-1 max-w-xl text-sm text-slate-600">Track Google visibility and follow-ups for every prospect.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" onClick={() => pullAll.mutate()} disabled={pullAll.isPending || runs.anyRunning} title="Pull this month's rankings for every active lead">
-            <RefreshCw className={cn(runs.anyRunning && "animate-spin")} />
-            {runningCount > 0 ? `Pulling ${runningCount} lead${runningCount > 1 ? "s" : ""}...` : "Pull all rankings"}
+          <Button variant="secondary" onClick={() => pullAll.mutate()} loading={pullAll.isPending || runs.anyRunning} title="Pull this month's rankings for every active lead">
+            <RefreshCw />
+            {runningCount > 0 ? `Pulling ${runningCount} lead${runningCount > 1 ? "s" : ""}...` : pullAll.isPending ? "Starting pull..." : "Pull all rankings"}
           </Button>
           <Button variant="secondary" onClick={() => setImporting(true)}>
             <Upload /> Import CSV

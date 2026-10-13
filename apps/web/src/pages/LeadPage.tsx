@@ -14,6 +14,7 @@ import { StatusDot } from "@/components/StatusBadge";
 import { VisibilitySummaryCard } from "@/components/VisibilitySummaryCard";
 import { Button } from "@/components/ui/button";
 import { Avatar, Card, EmptyState } from "@/components/ui/card";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Segmented } from "@/components/ui/segmented";
 import { usePullRuns } from "@/hooks/usePullRuns";
 import { useUpdateLead } from "@/hooks/useUpdateLead";
@@ -70,13 +71,21 @@ export function LeadPage() {
 
   const pull = useMutation({
     mutationFn: (force: boolean) => api.pullLead(id, { force }),
-    onSuccess: () => void runs.refresh(),
+    // Returned so the button keeps spinning until the run shows as running.
+    onSuccess: () => runs.refresh(),
     onError: (err: Error) => toast.error(err.message),
   });
+  const busy = pull.isPending || running;
+  const refreshing = busy && pull.variables === true;
 
-  const refreshFromGoogle = () => {
-    if (confirm("Check every phrase on Google again now? This uses DataForSEO credit for each phrase, even ones already checked this month.")) pull.mutate(true);
-  };
+  const { confirm, dialog: confirmDialog } = useConfirm();
+  const refreshFromGoogle = () =>
+    confirm({
+      title: "Refresh from Google?",
+      description: "Every phrase is checked on Google again now. This uses DataForSEO credit for each phrase, even ones already checked this month.",
+      confirmLabel: "Refresh all phrases",
+      onConfirm: () => pull.mutate(true),
+    });
 
   if (lead.isError) {
     return (
@@ -200,13 +209,14 @@ export function LeadPage() {
               size="sm"
               variant="ghost"
               onClick={refreshFromGoogle}
-              disabled={pull.isPending || running || !hasPhrases}
+              loading={refreshing}
+              disabled={busy || !hasPhrases}
               title="Check every phrase again, even ones already checked this month"
             >
-              <RotateCcw /> Refresh from Google
+              <RotateCcw /> {refreshing ? "Refreshing..." : "Refresh from Google"}
             </Button>
-            <Button size="sm" onClick={() => pull.mutate(false)} disabled={pull.isPending || running || !hasPhrases} title="Check phrases not yet ranked this month">
-              <RefreshCw className={cn(running && "animate-spin")} /> {running ? "Pulling..." : "Pull rankings"}
+            <Button size="sm" onClick={() => pull.mutate(false)} loading={busy && !refreshing} disabled={busy || !hasPhrases} title="Check phrases not yet ranked this month">
+              <RefreshCw /> {busy && !refreshing ? "Pulling..." : "Pull rankings"}
             </Button>
           </>
         }
@@ -241,6 +251,7 @@ export function LeadPage() {
       </Card>
 
       <PhraseManagerDialog open={managing} onOpenChange={setManaging} leadId={id} groups={groups.data ?? []} phrases={phrases.data ?? []} />
+      {confirmDialog}
     </div>
   );
 }

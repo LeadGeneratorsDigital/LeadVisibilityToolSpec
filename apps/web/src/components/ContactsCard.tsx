@@ -86,7 +86,7 @@ export function ContactsCard({ leadId, contacts }: { leadId: string; contacts: C
           <Button size="sm" variant="secondary" onClick={() => setEditing(false)} disabled={save.isPending}>
             Cancel
           </Button>
-          <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending || Boolean(invalidContact)}>
+          <Button size="sm" onClick={() => save.mutate()} loading={save.isPending} disabled={Boolean(invalidContact)}>
             {save.isPending ? "Saving..." : "Save contacts"}
           </Button>
         </div>
