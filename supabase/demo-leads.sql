@@ -1,16 +1,15 @@
 -- Extra demo leads across UK regions. Safe to re-run: leads that already exist are skipped.
--- City location codes use the UK-wide DataForSEO code (2826) as a placeholder; set the real
--- city codes from GET https://api.dataforseo.com/v3/serp/google/locations before going live.
+-- City location codes are the real DataForSEO ones (same as migration 20261013000002_city_location_codes).
 insert into public.location_codes (code, label, data4seo_location_code) values
-  ('MAN', 'Manchester', 2826),
-  ('BHM', 'Birmingham', 2826),
-  ('LDS', 'Leeds', 2826),
-  ('BRS', 'Bristol', 2826),
-  ('GLA', 'Glasgow', 2826),
-  ('EDI', 'Edinburgh', 2826),
-  ('CDF', 'Cardiff', 2826),
-  ('RDG', 'Reading', 2826),
-  ('KEN', 'Kent', 2826)
+  ('MAN', 'Manchester', 1006912),
+  ('BHM', 'Birmingham', 1006524),
+  ('LDS', 'Leeds', 1006864),
+  ('BRS', 'Bristol', 1006567),
+  ('GLA', 'Glasgow', 1007336),
+  ('EDI', 'Edinburgh', 1007326),
+  ('CDF', 'Cardiff', 1007416),
+  ('RDG', 'Reading', 1007009),
+  ('KEN', 'Kent', 9041088)
 on conflict (code) do nothing;
 
 with new_leads as (

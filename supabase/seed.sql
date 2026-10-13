@@ -1,5 +1,6 @@
 -- Demo data. Location codes must be re-checked against
 -- GET https://api.dataforseo.com/v3/serp/google/locations before going live.
+-- City codes for the other regions are set by migration 20261013000002_city_location_codes.
 insert into public.location_codes (code, label, data4seo_location_code) values
   ('UK', 'United Kingdom', 2826),
   ('LON', 'London', 1006886);
