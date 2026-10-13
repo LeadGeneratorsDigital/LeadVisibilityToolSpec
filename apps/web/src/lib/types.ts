@@ -2,6 +2,8 @@ import type { BuyerGroupInput, PhraseInput, RankingInput } from "@lvt/shared";
 
 export type LeadStatus = "active" | "paused" | "converted";
 
+export const MAX_CONTACTS = 5;
+
 export interface LocationCode {
   code: string;
   label: string;

@@ -1,7 +1,8 @@
 import { keywordKey } from "@lvt/shared";
 import type { LeadRankingCell } from "./insights";
 import { supabase } from "./supabase";
-import type { BuyerGroup, Contact, Lead, LocationCode, Phrase, PullRun, Ranking } from "./types";
+import type { ExistingContact, ImportLead } from "./lead-import";
+import { MAX_CONTACTS, type BuyerGroup, type Contact, type Lead, type LocationCode, type Phrase, type PullRun, type Ranking } from "./types";
 
 function unwrap<T>(result: { data: T | null; error: { message: string } | null }): T {
   if (result.error) throw new Error(result.error.message);
@@ -9,7 +10,7 @@ function unwrap<T>(result: { data: T | null; error: { message: string } | null }
   return result.data;
 }
 
-export const MAX_CONTACTS = 5;
+export { MAX_CONTACTS };
 
 const PAGE_SIZE = 1000;
 
@@ -57,6 +58,22 @@ export const data = {
     const rows = contacts.map((c) => ({ name: c.name.trim(), job_title: c.job_title?.trim() || null, email: c.email.trim() }));
     const { error } = await supabase.rpc("save_contacts", { p_lead_id: leadId, p_contacts: rows });
     if (error) throw new Error(error.message);
+  },
+
+  /** Every saved contact email with its lead's name, for the import duplicate check. */
+  async contactEmails(): Promise<ExistingContact[]> {
+    const rows = (await selectAll((from, to) => supabase.from("contacts").select("email, leads!inner(business_name)").order("id").range(from, to))) as unknown as Array<{
+      email: string;
+      leads: { business_name: string };
+    }>;
+    return rows.map((r) => ({ email: r.email, lead_name: r.leads.business_name }));
+  },
+
+  /** Creates the leads and their contacts in one transaction (import_leads): all of them or none. */
+  async importLeads(leads: ImportLead[]): Promise<number> {
+    const { data: count, error } = await supabase.rpc("import_leads", { p_leads: leads });
+    if (error) throw new Error(error.message);
+    return count as number;
   },
 
   async buyerGroups(leadId: string): Promise<BuyerGroup[]> {

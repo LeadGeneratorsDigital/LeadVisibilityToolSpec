@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { copyText } from "@/lib/clipboard";
 import { data, MAX_CONTACTS } from "@/lib/data";
 import { initials } from "@/lib/insights";
-import { joinEmails } from "@/lib/leads-table";
+import { isEmail, joinEmails } from "@/lib/leads-table";
 import type { Contact } from "@/lib/types";
 
 const emptyContact = (): Contact => ({ name: "", job_title: "", email: "", sort_order: 0 });
@@ -43,7 +43,7 @@ export function ContactsCard({ leadId, contacts }: { leadId: string; contacts: C
     setEditing(true);
   };
 
-  const invalidContact = people.find((p) => (p.name.trim() || p.email.trim()) && (!p.name.trim() || !/^\S+@\S+\.\S+$/.test(p.email.trim())));
+  const invalidContact = people.find((p) => (p.name.trim() || p.email.trim()) && (!p.name.trim() || !isEmail(p.email)));
   const updatePerson = (index: number, patch: Partial<Contact>) => setPeople((list) => list.map((p, i) => (i === index ? { ...p, ...patch } : p)));
 
   const copyAll = () => {

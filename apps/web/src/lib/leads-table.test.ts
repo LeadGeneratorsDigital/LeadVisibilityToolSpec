@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LeadRow } from "./leads-table";
-import { countByStatus, filterByStatus, filterLeads, joinEmails, latestRunByLead, sortLeads, withLocationLabels } from "./leads-table";
+import { countByStatus, filterByStatus, filterLeads, isEmail, joinEmails, latestRunByLead, sortLeads, withLocationLabels } from "./leads-table";
 import type { Lead, PullRun } from "./types";
 
 describe("status filter", () => {
@@ -119,6 +119,16 @@ describe("latestRunByLead", () => {
     const at = (minutes: number) => new Date(Date.parse(started) + minutes * 60_000);
     expect(latestRunByLead([run("A", started, "running")], at(59)).get("A")!.status).toBe("running");
     expect(latestRunByLead([run("A", started, "running")], at(61)).get("A")).toMatchObject({ status: "failed", error: "Pull was interrupted - pull again" });
+  });
+});
+
+describe("isEmail", () => {
+  it.each(["a@x.co", " a.b@x.co.uk ", "a+tag@sub.x.com"])("%j is an email", (value) => {
+    expect(isEmail(value)).toBe(true);
+  });
+
+  it.each(["", "a@x", "@x.co", "a@.co", "a x@y.co", "ax.co", "a@x.", "a@x co.uk", "a@x.co b"])("%j is not an email", (value) => {
+    expect(isEmail(value)).toBe(false);
   });
 });
 

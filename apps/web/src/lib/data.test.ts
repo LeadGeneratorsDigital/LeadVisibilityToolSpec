@@ -3,7 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /** Stand-in for the Supabase client that, like PostgREST, never returns more than `max_rows` rows per request. */
 const fake = vi.hoisted(() => {
   const MAX_ROWS = 1000;
-  const state = { tables: {} as Record<string, unknown[]>, calls: [] as string[], filters: [] as unknown[][], updates: [] as unknown[], rpcArgs: undefined as unknown };
+  const state = {
+    tables: {} as Record<string, unknown[]>,
+    calls: [] as string[],
+    filters: [] as unknown[][],
+    updates: [] as unknown[],
+    rpcArgs: undefined as unknown,
+    rpcResult: { data: null, error: null } as { data: unknown; error: { message: string } | null },
+  };
   const builder = (table: string) => {
     const q = { from: 0, to: Number.POSITIVE_INFINITY, limit: Number.POSITIVE_INFINITY, count: false };
     const b = {
@@ -32,7 +39,7 @@ const fake = vi.hoisted(() => {
     rpc: (fn: string, args: unknown) => {
       state.calls.push(`rpc ${fn}`);
       state.rpcArgs = args;
-      return Promise.resolve({ data: null, error: null });
+      return Promise.resolve(state.rpcResult);
     },
   };
   return { state, supabase };
@@ -48,6 +55,30 @@ beforeEach(() => {
   fake.state.filters = [];
   fake.state.updates = [];
   fake.state.rpcArgs = undefined;
+  fake.state.rpcResult = { data: null, error: null };
+});
+
+describe("CSV import", () => {
+  it("reads every saved contact email with its lead's name, past the row cap", async () => {
+    fake.state.tables.contacts = Array.from({ length: 1500 }, (_, i) => ({ email: `p${i}@a.co`, leads: { business_name: `Lead ${i}` } }));
+    const emails = await data.contactEmails();
+    expect(emails).toHaveLength(1500);
+    expect(emails[1499]).toEqual({ email: "p1499@a.co", lead_name: "Lead 1499" });
+    expect(fake.state.filters).toContainEqual(["contacts", "select", "email, leads!inner(business_name)"]);
+  });
+
+  it("sends the whole import as one import_leads call and returns the created count", async () => {
+    const leads = [{ business_name: "Acme", website_domain: null, industry: null, location_code: null, status: "active" as const, next_email_due: null, contacts: [] }];
+    fake.state.rpcResult = { data: 1, error: null };
+    expect(await data.importLeads(leads)).toBe(1);
+    expect(fake.state.calls).toEqual(["rpc import_leads"]);
+    expect(fake.state.rpcArgs).toEqual({ p_leads: leads });
+  });
+
+  it("surfaces the database error when the import is rolled back", async () => {
+    fake.state.rpcResult = { data: null, error: { message: "violates check constraint" } };
+    await expect(data.importLeads([])).rejects.toThrow("violates check constraint");
+  });
 });
 
 describe("archived phrases", () => {

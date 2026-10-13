@@ -1,10 +1,11 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { currentMonthKey, monthsEndingAt } from "@lvt/shared";
-import { ArrowDown, ArrowUp, Building2, Eye, History, MailWarning, Plus, RefreshCw, Search, SearchX, Users, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Building2, Eye, History, MailWarning, Plus, RefreshCw, Search, SearchX, Upload, Users, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { AddLeadDialog } from "@/components/AddLeadDialog";
+import { ImportLeadsDialog } from "@/components/ImportLeadsDialog";
 import { PullStatus } from "@/components/PullStatus";
 import { StatusBadge } from "@/components/StatusBadge";
 import { VisibilityBar } from "@/components/VisibilityBar";
@@ -62,6 +63,7 @@ export function LeadsPage() {
   const [status, setStatus] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({ key: "business_name", direction: "asc" });
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const today = todayKey();
   const now = new Date();
@@ -100,6 +102,9 @@ export function LeadsPage() {
           <Button variant="secondary" onClick={() => pullAll.mutate()} disabled={pullAll.isPending || runs.anyRunning} title="Pull this month's rankings for every active lead">
             <RefreshCw className={cn(runs.anyRunning && "animate-spin")} />
             {runningCount > 0 ? `Pulling ${runningCount} lead${runningCount > 1 ? "s" : ""}...` : "Pull all rankings"}
+          </Button>
+          <Button variant="secondary" onClick={() => setImporting(true)}>
+            <Upload /> Import CSV
           </Button>
           <Button onClick={() => setAdding(true)}>
             <Plus /> Add new lead
@@ -265,6 +270,7 @@ export function LeadsPage() {
       </div>
 
       <AddLeadDialog open={adding} onOpenChange={setAdding} locations={locations.data ?? []} />
+      <ImportLeadsDialog open={importing} onOpenChange={setImporting} locations={locations.data ?? []} />
     </div>
   );
 }

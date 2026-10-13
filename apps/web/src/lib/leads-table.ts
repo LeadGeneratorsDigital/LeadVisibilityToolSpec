@@ -78,6 +78,10 @@ export function latestRunByLead(runs: PullRun[], now = new Date()): Map<string, 
 }
 
 /** Spec section 4.2: comma-separated, ready to paste into Gmail. Blank and repeated addresses are dropped. */
+export function isEmail(value: string): boolean {
+  return /^\S+@\S+\.\S+$/.test(value.trim());
+}
+
 export function joinEmails(emails: string[]): string {
   const seen = new Set<string>();
   const out: string[] = [];
