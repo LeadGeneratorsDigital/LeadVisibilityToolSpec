@@ -4,7 +4,8 @@ import { toast } from "sonner";
 import { normalizeDomain } from "@lvt/shared";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Field, Input, Select } from "@/components/ui/input";
+import { Field, Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { useUpdateLead } from "@/hooks/useUpdateLead";
 import { formatDate } from "@/lib/format";
 import { dueStatus, relativeTime, todayKey } from "@/lib/insights";
@@ -70,14 +71,13 @@ export function LeadDetailsCard({ lead, locations }: { lead: Lead; locations: Lo
             <Input id="industry" value={form.industry ?? ""} onChange={(e) => setForm({ ...form, industry: e.target.value })} />
           </Field>
           <Field label="Location" htmlFor="location">
-            <Select id="location" value={form.location_code ?? ""} onChange={(e) => setForm({ ...form, location_code: e.target.value || null })}>
-              <option value="">No location</option>
-              {locations.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.label} ({l.code})
-                </option>
-              ))}
-            </Select>
+            <Select
+              id="location"
+              value={form.location_code ?? null}
+              onChange={(code) => setForm({ ...form, location_code: code })}
+              emptyLabel="No location"
+              options={locations.map((l) => ({ value: l.code, label: l.label, hint: l.code }))}
+            />
           </Field>
           <Field label="Website domain" htmlFor="domain">
             <Input id="domain" placeholder="example.co.uk" value={form.website_domain ?? ""} onChange={(e) => setForm({ ...form, website_domain: e.target.value })} />
@@ -89,7 +89,7 @@ export function LeadDetailsCard({ lead, locations }: { lead: Lead; locations: Lo
             <Button variant="secondary" size="sm" onClick={() => setEditing(false)} disabled={save.isPending}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={save.isPending}>
+            <Button type="submit" size="sm" loading={save.isPending}>
               {save.isPending ? "Saving..." : "Save details"}
             </Button>
           </div>
