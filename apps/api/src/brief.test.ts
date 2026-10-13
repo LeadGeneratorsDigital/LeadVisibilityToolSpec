@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BRIEF_MAX_TOKENS, BRIEF_SYSTEM_PROMPT, createClaudeBriefMerger, createMockBriefMerger } from "./brief";
+import { BRIEF_MAX_TOKENS, BRIEF_SYSTEM_PROMPT, BriefDisabledError, createClaudeBriefMerger, createDisabledBriefMerger, createMockBriefMerger } from "./brief";
 
 function fakeMessages(content: Array<{ type: string; text?: string }>) {
   const calls: unknown[] = [];
@@ -35,6 +35,14 @@ describe("createClaudeBriefMerger", () => {
   it("throws on an empty reply instead of wiping the brief", async () => {
     const fake = fakeMessages([{ type: "text", text: "   " }]);
     await expect(createClaudeBriefMerger(fake.api, "m").merge("keep me", "n")).rejects.toThrow(/empty brief/);
+  });
+});
+
+describe("createDisabledBriefMerger", () => {
+  it("reports mode off and refuses to merge with BriefDisabledError", async () => {
+    const merger = createDisabledBriefMerger();
+    expect(merger.mode).toBe("off");
+    await expect(merger.merge("keep me", "n")).rejects.toBeInstanceOf(BriefDisabledError);
   });
 });
 

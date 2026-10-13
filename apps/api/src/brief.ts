@@ -11,8 +11,20 @@ export function briefUserMessage(existingBrief: string, rawNotes: string): strin
 }
 
 export interface BriefMerger {
-  readonly mode: "claude" | "mock";
+  readonly mode: "claude" | "mock" | "off";
   merge(existingBrief: string, rawNotes: string): Promise<string>;
+}
+
+export class BriefDisabledError extends Error {}
+
+/** Production without ANTHROPIC_API_KEY: brief merging is not part of the deploy (see briefMode). */
+export function createDisabledBriefMerger(): BriefMerger {
+  return {
+    mode: "off",
+    async merge() {
+      throw new BriefDisabledError("Brief updates are not set up - a Claude API key is needed");
+    },
+  };
 }
 
 type MessagesApi = Pick<Anthropic["messages"], "create">;

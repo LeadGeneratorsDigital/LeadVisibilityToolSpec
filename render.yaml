@@ -5,8 +5,8 @@ services:
     runtime: node
     plan: free
     region: frankfurt
-    # NODE_ENV=production makes pnpm skip devDependencies, but the API runs through tsx.
-    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false
+    # NODE_ENV=production makes pnpm skip devDependencies, but the build needs tsup.
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @lvt/api build
     startCommand: pnpm --filter @lvt/api start
     healthCheckPath: /api/health
     envVars:

@@ -1,13 +1,16 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { currentMonthKey } from "@lvt/shared";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "./app";
-import type { BriefMerger } from "./brief";
+import { type BriefMerger, createDisabledBriefMerger } from "./brief";
 import { FakeRepo, scriptedSerp, serpWithOrganic, unlimited } from "./test-support";
 
 const LEAD_ID = "6f1c2c1e-1111-4a4a-9b9b-000000000001";
 const AUTH = { authorization: "Bearer good-token" };
 
-async function setup(brief?: Partial<BriefMerger>) {
+async function setup(brief?: Partial<BriefMerger>, webDist: string | null = null) {
   const repo = new FakeRepo();
   repo.addLead(LEAD_ID, ["a"]);
   const work: Promise<void>[] = [];
@@ -20,6 +23,7 @@ async function setup(brief?: Partial<BriefMerger>) {
     pull: { repo, serp, limit: unlimited, inFlight },
     brief: merger,
     onBackgroundWork: (w) => work.push(w),
+    webDist,
   });
   return { app, repo, serp, inFlight, settle: () => Promise.all(work) };
 }
@@ -158,11 +162,83 @@ describe("POST /api/brief/merge", () => {
     expect(res.statusCode).toBe(502);
     expect(res.body).not.toContain("sk-secret");
   });
+
+  it("503 saying it is not set up when brief merging is off (production without a Claude key)", async () => {
+    const { app } = await setup(createDisabledBriefMerger());
+    const res = await app.inject({ method: "POST", url: "/api/brief/merge", headers: AUTH, payload: { brief: "", notes: "x" } });
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toEqual({ error: "Brief updates are not set up - a Claude API key is needed" });
+    expect((await app.inject({ method: "GET", url: "/api/health" })).json()).toMatchObject({ briefMode: "off" });
+  });
 });
 
 describe("GET /api/health", () => {
   it("reports the active modes without auth", async () => {
     const { app } = await setup();
     expect((await app.inject({ method: "GET", url: "/api/health" })).json()).toEqual({ ok: true, serpMode: "mock", briefMode: "mock" });
+  });
+});
+
+describe("serving the built web app (single-host deploy)", () => {
+  function webBuild() {
+    const dir = mkdtempSync(join(tmpdir(), "lvt-dist-"));
+    mkdirSync(join(dir, "assets"));
+    writeFileSync(join(dir, "index.html"), "<!doctype html><title>shell</title>");
+    writeFileSync(join(dir, "assets", "index-abc123.js"), "console.log(1)");
+    writeFileSync(join(dir, "favicon.svg"), "<svg/>");
+    return dir;
+  }
+
+  it("serves index.html at / and for client-side routes, never cached", async () => {
+    const { app } = await setup(undefined, webBuild());
+    for (const url of ["/", "/leads/6f1c2c1e-1111-4a4a-9b9b-000000000001", "/login?next=%2F"]) {
+      const res = await app.inject({ method: "GET", url });
+      expect(res.statusCode, url).toBe(200);
+      expect(res.body, url).toContain("<title>shell</title>");
+      expect(res.headers["cache-control"], url).toBe("no-cache");
+    }
+  });
+
+  it("serves hashed assets with a long immutable cache, and other files with no-cache", async () => {
+    const { app } = await setup(undefined, webBuild());
+    const asset = await app.inject({ method: "GET", url: "/assets/index-abc123.js" });
+    expect(asset.statusCode).toBe(200);
+    expect(asset.body).toBe("console.log(1)");
+    expect(asset.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
+    expect((await app.inject({ method: "GET", url: "/favicon.svg" })).headers["cache-control"]).toBe("no-cache");
+  });
+
+  it.each(["/api/nope", "/api", "/api?x=1"])("unknown API path %s stays a JSON 404, not the app shell", async (url) => {
+    const { app } = await setup(undefined, webBuild());
+    const res = await app.inject({ method: "GET", url });
+    expect(res.statusCode).toBe(404);
+    expect(res.json()).toEqual({ error: "Not found" });
+  });
+
+  it("a path that only starts with 'api' is a client route, not the API", async () => {
+    const { app } = await setup(undefined, webBuild());
+    for (const url of ["/apikeys", "/leads/api", "/leads/api/x"]) {
+      expect((await app.inject({ method: "GET", url })).body, url).toContain("<title>shell</title>");
+    }
+  });
+
+  it("non-GET requests to unknown paths are 404, not the app shell", async () => {
+    const { app } = await setup(undefined, webBuild());
+    expect((await app.inject({ method: "POST", url: "/leads/x" })).statusCode).toBe(404);
+  });
+
+  it("the API routes still answer when the web app is served", async () => {
+    const { app } = await setup(undefined, webBuild());
+    expect((await app.inject({ method: "GET", url: "/api/health" })).json()).toMatchObject({ ok: true });
+    expect((await app.inject({ method: "POST", url: `/api/leads/${LEAD_ID}/pull` })).statusCode).toBe(401);
+  });
+
+  it("without a web build only /api is served", async () => {
+    const { app } = await setup();
+    for (const url of ["/", "/leads/x"]) {
+      const res = await app.inject({ method: "GET", url });
+      expect(res.statusCode, url).toBe(404);
+      expect(res.json().message, url).toBe(`Route GET:${url} not found`);
+    }
   });
 });
