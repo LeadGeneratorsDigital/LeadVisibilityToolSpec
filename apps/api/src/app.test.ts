@@ -1,3 +1,4 @@
+import { currentMonthKey } from "@lvt/shared";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "./app";
 import type { BriefMerger } from "./brief";
@@ -12,14 +13,15 @@ async function setup(brief?: Partial<BriefMerger>) {
   const work: Promise<void>[] = [];
   const inFlight = new Set<string>();
   const merger: BriefMerger = { mode: "mock", merge: async (b, n) => `${b}|${n}`, ...brief };
+  const serp = scriptedSerp(() => serpWithOrganic(["lead.co.uk"]));
   const app = await buildApp({
     corsOrigin: "http://localhost:5173",
     verifyToken: async (token) => (token === "good-token" ? "user-1" : null),
-    pull: { repo, serp: scriptedSerp(() => serpWithOrganic(["lead.co.uk"])), limit: unlimited, inFlight },
+    pull: { repo, serp, limit: unlimited, inFlight },
     brief: merger,
     onBackgroundWork: (w) => work.push(w),
   });
-  return { app, repo, inFlight, settle: () => Promise.all(work) };
+  return { app, repo, serp, inFlight, settle: () => Promise.all(work) };
 }
 
 describe("auth gate", () => {
@@ -58,6 +60,31 @@ describe("POST /api/leads/:id/pull", () => {
     expect(res.json()).toEqual({ runId: "run-1" });
     await settle();
     expect(repo.runs[0]!.status).toBe("succeeded");
+  });
+
+  it("without force, a phrase already ranked this month is not checked again", async () => {
+    const { app, repo, serp, settle } = await setup();
+    repo.rankings.set(`${LEAD_ID}-p0|${currentMonthKey(new Date())}`, 14);
+    expect((await app.inject({ method: "POST", url: `/api/leads/${LEAD_ID}/pull`, headers: AUTH })).statusCode).toBe(202);
+    await settle();
+    expect(serp.calls).toEqual([]);
+  });
+
+  it("{ force: true } checks it again and overwrites the month", async () => {
+    const { app, repo, serp, settle } = await setup();
+    const month = currentMonthKey(new Date());
+    repo.rankings.set(`${LEAD_ID}-p0|${month}`, 14);
+    const res = await app.inject({ method: "POST", url: `/api/leads/${LEAD_ID}/pull`, headers: AUTH, payload: { force: true } });
+    expect(res.statusCode).toBe(202);
+    await settle();
+    expect(serp.calls).toEqual(["a"]);
+    expect(repo.ranking(`${LEAD_ID}-p0`, month)).toBe(1);
+  });
+
+  it.each([[{ force: "yes" }], [{ force: true, extra: 1 }]])("400 for body %j, and no run starts", async (payload) => {
+    const { app, repo } = await setup();
+    expect((await app.inject({ method: "POST", url: `/api/leads/${LEAD_ID}/pull`, headers: AUTH, payload })).statusCode).toBe(400);
+    expect(repo.runs).toEqual([]);
   });
 
   it("400 for a non-uuid id", async () => {

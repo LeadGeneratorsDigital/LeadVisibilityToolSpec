@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SerpItem, SerpResponse } from "./dataforseo";
-import { buildSerpTask, extractOrganicRank } from "./dataforseo";
+import { buildSerpTask, extractOrganicRank, positionFromRankGroup, SERP_DEPTH } from "./dataforseo";
 
 const LEAD = "brightclean.co.uk";
 
@@ -62,6 +62,12 @@ describe("extractOrganicRank", () => {
   it("takes the first organic hit when the domain appears twice", () => {
     const items = [serpItem("organic", 5, 5, "brightclean.co.uk"), serpItem("organic", 9, 9, "www.brightclean.co.uk")];
     expect(extractOrganicRank(response(items), LEAD)).toEqual({ kind: "ranked", position: 5 });
+  });
+
+  it("keeps position 100 (the last requested slot) and records 101 past the depth", () => {
+    expect(positionFromRankGroup(SERP_DEPTH)).toBe(100);
+    expect(positionFromRankGroup(SERP_DEPTH + 1)).toBe(101);
+    expect(extractOrganicRank(response([serpItem("organic", 100, 104, "www.brightclean.co.uk")]), LEAD)).toEqual({ kind: "ranked", position: 100 });
   });
 
   it("records 101 when the domain is absent from a complete result set", () => {

@@ -16,6 +16,7 @@ export interface AppDeps {
 }
 
 const leadParams = z.object({ id: z.string().uuid() });
+const pullBody = z.object({ force: z.boolean().optional() }).strict().optional();
 const briefBody = z.object({
   brief: z.string().max(20_000),
   notes: z.string().trim().min(1, "Notes are required").max(10_000),
@@ -49,8 +50,10 @@ export async function buildApp(deps: AppDeps) {
   app.post("/api/leads/:id/pull", { preHandler: authenticate }, async (request, reply) => {
     const params = leadParams.safeParse(request.params);
     if (!params.success) return reply.code(400).send({ error: "Invalid lead id" });
+    const body = pullBody.safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: "Invalid request" });
     try {
-      const pull = await startLeadPull(deps.pull, params.data.id);
+      const pull = await startLeadPull(deps.pull, params.data.id, { force: body.data?.force === true });
       background(pull.done);
       return reply.code(202).send({ runId: pull.runId });
     } catch (err) {

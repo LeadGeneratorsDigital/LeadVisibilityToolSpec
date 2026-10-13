@@ -1,3 +1,4 @@
+import { keywordKey } from "@lvt/shared";
 import type { LeadRankingCell } from "./insights";
 import { supabase } from "./supabase";
 import type { BuyerGroup, Contact, Lead, LocationCode, Phrase, PullRun, Ranking } from "./types";
@@ -62,13 +63,14 @@ export const data = {
     return unwrap(await supabase.from("buyer_groups").select("*").eq("lead_id", leadId).order("sort_order"));
   },
 
+  /** Tracked phrases only; archived ones keep their history but are hidden. */
   async phrases(leadId: string): Promise<Phrase[]> {
-    return unwrap(await supabase.from("phrases").select("*").eq("lead_id", leadId).order("sort_order"));
+    return unwrap(await supabase.from("phrases").select("*").eq("lead_id", leadId).is("archived_at", null).order("sort_order"));
   },
 
   async rankings(phraseIds: string[]): Promise<Ranking[]> {
     if (phraseIds.length === 0) return [];
-    return selectAll((from, to) => supabase.from("rankings").select("phrase_id, month, position").in("phrase_id", phraseIds).order("id").range(from, to));
+    return selectAll((from, to) => supabase.from("rankings").select("phrase_id, month, position, checked_at").in("phrase_id", phraseIds).order("id").range(from, to));
   },
 
   /** Ranking cells for every lead since `sinceMonth`, tagged with the owning lead, for dashboard summaries. */
@@ -79,6 +81,7 @@ export const data = {
         .select("month, position, phrases!inner(lead_id, is_heading)")
         .gte("month", sinceMonth)
         .eq("phrases.is_heading", false)
+        .is("phrases.archived_at", null)
         .order("id")
         .range(from, to),
     )) as unknown as Array<{ month: string; position: number | null; phrases: { lead_id: string } }>;
@@ -98,12 +101,21 @@ export const data = {
     unwrap(await supabase.from("buyer_groups").delete().eq("id", id).select("id"));
   },
 
-  async addPhrase(leadId: string, buyerGroupId: string | null, text: string, sortOrder: number): Promise<void> {
+  /** Re-adding an archived phrase (same words, any case or spacing) restores it with its ranking history. */
+  async addPhrase(leadId: string, buyerGroupId: string | null, text: string, sortOrder: number): Promise<"added" | "restored"> {
+    const archived = unwrap(await supabase.from("phrases").select("id, phrase_text").eq("lead_id", leadId).not("archived_at", "is", null));
+    const match = archived.find((p) => keywordKey(p.phrase_text) === keywordKey(text));
+    if (match) {
+      unwrap(await supabase.from("phrases").update({ archived_at: null, buyer_group_id: buyerGroupId, sort_order: sortOrder }).eq("id", match.id).select("id"));
+      return "restored";
+    }
     unwrap(await supabase.from("phrases").insert({ lead_id: leadId, buyer_group_id: buyerGroupId, phrase_text: text, sort_order: sortOrder }).select("id"));
+    return "added";
   },
 
-  async deletePhrase(id: string): Promise<void> {
-    unwrap(await supabase.from("phrases").delete().eq("id", id).select("id"));
+  /** Stops tracking without deleting, so the phrase's ranking history is never lost. */
+  async archivePhrase(id: string): Promise<void> {
+    unwrap(await supabase.from("phrases").update({ archived_at: new Date().toISOString() }).eq("id", id).select("id"));
   },
 
   async swapSortOrder(table: "buyer_groups" | "phrases", a: { id: string; sort_order: number }, b: { id: string; sort_order: number }): Promise<void> {

@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { buildChatGptCopy, buildRankingGrid, historyMonths } from "@lvt/shared";
-import { BarChart3, ClipboardCopy, ExternalLink, ListTree, MapPin, RefreshCw, Tag } from "lucide-react";
+import { BarChart3, ClipboardCopy, ExternalLink, ListTree, MapPin, RefreshCw, RotateCcw, Tag } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -69,10 +69,14 @@ export function LeadPage() {
   const running = run?.status === "running";
 
   const pull = useMutation({
-    mutationFn: () => api.pullLead(id),
+    mutationFn: (force: boolean) => api.pullLead(id, { force }),
     onSuccess: () => void runs.refresh(),
     onError: (err: Error) => toast.error(err.message),
   });
+
+  const refreshFromGoogle = () => {
+    if (confirm("Check every phrase on Google again now? This uses DataForSEO credit for each phrase, even ones already checked this month.")) pull.mutate(true);
+  };
 
   if (lead.isError) {
     return (
@@ -178,7 +182,16 @@ export function LeadPage() {
             <Button size="sm" variant="secondary" onClick={() => setManaging(true)}>
               <ListTree /> Manage phrases
             </Button>
-            <Button size="sm" onClick={() => pull.mutate()} disabled={pull.isPending || running || !hasPhrases}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={refreshFromGoogle}
+              disabled={pull.isPending || running || !hasPhrases}
+              title="Check every phrase again, even ones already checked this month"
+            >
+              <RotateCcw /> Refresh from Google
+            </Button>
+            <Button size="sm" onClick={() => pull.mutate(false)} disabled={pull.isPending || running || !hasPhrases} title="Check phrases not yet ranked this month">
               <RefreshCw className={cn(running && "animate-spin")} /> {running ? "Pulling..." : "Pull rankings"}
             </Button>
           </>
@@ -195,7 +208,7 @@ export function LeadPage() {
                   </span>
                 ))}
               </div>
-              <span className="hidden tabular-nums text-[11px] text-slate-500 lg:block">Most recent month at the right</span>
+              <span className="hidden tabular-nums text-[11px] text-slate-500 lg:block">Most recent month at the right - hover a cell for the check date</span>
             </div>
             <RankingTable rows={rows} months={months} />
           </>

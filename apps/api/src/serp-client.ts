@@ -9,6 +9,11 @@ export interface SerpContext {
 
 export interface SerpClient {
   readonly mode: "mock" | "live";
+  /**
+   * True when a response depends only on keyword + location, so it can be saved and reused for any lead.
+   * The mock builds each SERP around one lead's domain, so reusing it would rank other leads as absent.
+   */
+  readonly reusable: boolean;
   fetchSerp(task: SerpTask, context: SerpContext): Promise<SerpResponse>;
 }
 
@@ -32,6 +37,7 @@ export function createLiveSerpClient(login: string, password: string, fetchImpl:
   const authorization = `Basic ${Buffer.from(`${login}:${password}`).toString("base64")}`;
   return {
     mode: "live",
+    reusable: true,
     async fetchSerp(task) {
       const res = await fetchImpl(LIVE_ENDPOINT, {
         method: "POST",
@@ -52,6 +58,7 @@ export function createMockSerpClient(options: { errorRate: number; latencyMs: nu
   const random = options.random ?? Math.random;
   return {
     mode: "mock",
+    reusable: false,
     async fetchSerp(task, context) {
       if (options.latencyMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, options.latencyMs * (0.5 + random())));

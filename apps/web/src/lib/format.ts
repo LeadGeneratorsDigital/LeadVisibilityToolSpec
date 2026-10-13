@@ -14,3 +14,9 @@ export function formatDate(value: string | null): string {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00`) : new Date(value);
   return Number.isNaN(date.getTime()) ? "" : dateFormat.format(date);
 }
+
+/** Ranking cell hover suffix, e.g. " - checked 5 Oct 2026"; blank for rows from before checks were recorded. */
+export function checkedSuffix(checkedAt: string | null | undefined): string {
+  const date = formatDate(checkedAt ?? null);
+  return date ? ` - checked ${date}` : "";
+}

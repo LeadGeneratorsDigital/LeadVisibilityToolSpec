@@ -20,11 +20,20 @@ export interface RankingInput {
   phrase_id: string;
   month: MonthKey;
   position: number | null;
+  /** When Google was checked for this position; null for blank (error) rows and rows written before checks were recorded. */
+  checked_at?: string | null;
 }
 
 export type GridRow =
   | { kind: "heading"; key: string; label: string }
-  | { kind: "phrase"; key: string; phraseId: string; label: string; positions: Record<MonthKey, number | null | undefined> };
+  | {
+      kind: "phrase";
+      key: string;
+      phraseId: string;
+      label: string;
+      positions: Record<MonthKey, number | null | undefined>;
+      checkedAt: Record<MonthKey, string | null | undefined>;
+    };
 
 function bySortOrder<T extends { sort_order: number }>(a: T, b: T): number {
   return a.sort_order - b.sort_order;
@@ -49,17 +58,18 @@ export function historyMonths(rankings: RankingInput[]): MonthKey[] {
  * A month with no ranking row is `undefined`; a stored NULL (API error) is `null`.
  */
 export function buildRankingGrid(groups: BuyerGroupInput[], phrases: PhraseInput[], rankings: RankingInput[]): GridRow[] {
-  const byPhrase = new Map<string, Record<MonthKey, number | null>>();
+  const byPhrase = new Map<string, { positions: Record<MonthKey, number | null>; checkedAt: Record<MonthKey, string | null> }>();
   for (const r of rankings) {
-    const row = byPhrase.get(r.phrase_id) ?? {};
-    row[r.month] = r.position;
+    const row = byPhrase.get(r.phrase_id) ?? { positions: {}, checkedAt: {} };
+    row.positions[r.month] = r.position;
+    row.checkedAt[r.month] = r.checked_at ?? null;
     byPhrase.set(r.phrase_id, row);
   }
 
   const toRow = (p: PhraseInput): GridRow =>
     p.is_heading
       ? { kind: "heading", key: p.id, label: p.phrase_text }
-      : { kind: "phrase", key: p.id, phraseId: p.id, label: p.phrase_text, positions: byPhrase.get(p.id) ?? {} };
+      : { kind: "phrase", key: p.id, phraseId: p.id, label: p.phrase_text, positions: byPhrase.get(p.id)?.positions ?? {}, checkedAt: byPhrase.get(p.id)?.checkedAt ?? {} };
 
   const knownGroups = new Set(groups.map((g) => g.id));
   const ungrouped = phrases.filter((p) => p.buyer_group_id === null || !knownGroups.has(p.buyer_group_id));

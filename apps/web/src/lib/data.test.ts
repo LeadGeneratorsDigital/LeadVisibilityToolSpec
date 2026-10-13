@@ -3,14 +3,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /** Stand-in for the Supabase client that, like PostgREST, never returns more than `max_rows` rows per request. */
 const fake = vi.hoisted(() => {
   const MAX_ROWS = 1000;
-  const state = { tables: {} as Record<string, unknown[]>, calls: [] as string[], rpcArgs: undefined as unknown };
+  const state = { tables: {} as Record<string, unknown[]>, calls: [] as string[], filters: [] as unknown[][], updates: [] as unknown[], rpcArgs: undefined as unknown };
   const builder = (table: string) => {
     const q = { from: 0, to: Number.POSITIVE_INFINITY, limit: Number.POSITIVE_INFINITY, count: false };
     const b = {
-      select: (_columns?: string, options?: { count?: string }) => ((q.count = Boolean(options?.count)), b),
+      select: (columns?: string, options?: { count?: string }) => (state.filters.push([table, "select", columns]), (q.count = Boolean(options?.count)), b),
       in: () => b,
-      eq: () => b,
+      eq: (...args: unknown[]) => (state.filters.push([table, "eq", ...args]), b),
+      is: (...args: unknown[]) => (state.filters.push([table, "is", ...args]), b),
+      not: (...args: unknown[]) => (state.filters.push([table, "not", ...args]), b),
       gte: () => b,
+      update: (row: unknown) => (state.calls.push(`update ${table}`), state.updates.push(row), b),
       order: () => b,
       limit: (n: number) => ((q.limit = n), b),
       range: (from: number, to: number) => ((q.from = from), (q.to = to), b),
@@ -42,7 +45,54 @@ const { data } = await import("./data");
 beforeEach(() => {
   fake.state.tables = {};
   fake.state.calls = [];
+  fake.state.filters = [];
+  fake.state.updates = [];
   fake.state.rpcArgs = undefined;
+});
+
+describe("archived phrases", () => {
+  it("the phrase list hides archived phrases", async () => {
+    fake.state.tables.phrases = [];
+    await data.phrases("L1");
+    expect(fake.state.filters).toContainEqual(["phrases", "is", "archived_at", null]);
+  });
+
+  it("dashboard ranking cells leave out archived phrases", async () => {
+    fake.state.tables.rankings = [];
+    await data.leadRankingCells("2026-08-01");
+    expect(fake.state.filters).toContainEqual(["rankings", "is", "phrases.archived_at", null]);
+  });
+
+  it("removing a phrase archives it and never deletes it", async () => {
+    fake.state.tables.phrases = [{ id: "p1" }];
+    await data.archivePhrase("p1");
+    expect(fake.state.calls).toEqual(["update phrases"]);
+    expect(fake.state.updates[0]).toEqual({ archived_at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) });
+    expect(fake.state.filters).toContainEqual(["phrases", "eq", "id", "p1"]);
+  });
+
+  it("re-adding an archived phrase (any case or spacing) restores it into the chosen group", async () => {
+    fake.state.tables.phrases = [{ id: "p9", phrase_text: "Scaffolding  Hire" }];
+    expect(await data.addPhrase("L1", "g2", "scaffolding hire", 4)).toBe("restored");
+    expect(fake.state.calls).toEqual(["update phrases"]);
+    expect(fake.state.updates[0]).toEqual({ archived_at: null, buyer_group_id: "g2", sort_order: 4 });
+    expect(fake.state.filters).toContainEqual(["phrases", "not", "archived_at", "is", null]);
+    expect(fake.state.filters).toContainEqual(["phrases", "eq", "id", "p9"]);
+  });
+
+  it("a phrase with no archived match is inserted", async () => {
+    fake.state.tables.phrases = [{ id: "p9", phrase_text: "scaffolding hire leeds" }];
+    expect(await data.addPhrase("L1", null, "scaffolding hire", 1)).toBe("added");
+    expect(fake.state.calls).toEqual(["insert phrases"]);
+  });
+});
+
+describe("rankings", () => {
+  it("reads the check time with each position", async () => {
+    fake.state.tables.rankings = [{ phrase_id: "p0", month: "2026-10-01", position: 3, checked_at: "2026-10-05T09:00:00+00:00" }];
+    expect(await data.rankings(["p0"])).toEqual([{ phrase_id: "p0", month: "2026-10-01", position: 3, checked_at: "2026-10-05T09:00:00+00:00" }]);
+    expect(fake.state.filters).toContainEqual(["rankings", "select", "phrase_id, month, position, checked_at"]);
+  });
 });
 
 describe("reads past the PostgREST row cap", () => {

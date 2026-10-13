@@ -37,6 +37,18 @@ describe("buildRankingGrid", () => {
     expect(row.positions["2026-09-01"]).toBeNull();
     expect(row.positions["2026-08-01"]).toBeUndefined();
   });
+
+  it("carries each month's check time beside its position, null when it was never recorded", () => {
+    const rows = buildRankingGrid([], [phrases[3]!], [
+      { phrase_id: "p0", month: "2026-10-01", position: 4, checked_at: "2026-10-05T09:00:00+00:00" },
+      { phrase_id: "p0", month: "2026-09-01", position: 7 },
+      { phrase_id: "p3", month: "2026-10-01", position: 1, checked_at: "2026-10-06T09:00:00+00:00" },
+    ]);
+    const row = rows[0]!;
+    if (row.kind !== "phrase") throw new Error("expected phrase row");
+    expect(row.checkedAt).toEqual({ "2026-10-01": "2026-10-05T09:00:00+00:00", "2026-09-01": null });
+    expect(row.positions).toEqual({ "2026-10-01": 4, "2026-09-01": 7 });
+  });
 });
 
 describe("historyMonths", () => {

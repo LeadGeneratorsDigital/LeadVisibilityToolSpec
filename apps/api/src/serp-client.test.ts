@@ -37,6 +37,13 @@ describe("createLiveSerpClient", () => {
   });
 });
 
+describe("reusable", () => {
+  it("live results can be shared across leads; mock results are built around one lead and cannot", () => {
+    expect(createLiveSerpClient("a", "b").reusable).toBe(true);
+    expect(createMockSerpClient({ errorRate: 0, latencyMs: 0 }).reusable).toBe(false);
+  });
+});
+
 describe("createMockSerpClient", () => {
   it("returns a response the real parser accepts", async () => {
     const client = createMockSerpClient({ errorRate: 0, latencyMs: 0, random: () => 0.5 });

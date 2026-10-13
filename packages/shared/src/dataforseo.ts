@@ -84,6 +84,11 @@ export type RankOutcome =
   | { kind: "ranked"; position: number }
   | { kind: "error"; fatal: boolean; statusCode: number; message: string };
 
+/** A hit past the requested depth is outside the window the position is defined for. */
+export function positionFromRankGroup(rankGroup: number): number {
+  return rankGroup > SERP_DEPTH ? NOT_RANKED_POSITION : rankGroup;
+}
+
 function error(statusCode: number, message: string): RankOutcome {
   return { kind: "error", fatal: FATAL_STATUS_CODES.has(statusCode), statusCode, message };
 }
@@ -116,7 +121,7 @@ export function extractOrganicRank(response: SerpResponse, leadDomain: string): 
 
   const hit = items.find((item) => item.type === "organic" && domainMatches(item.domain, leadDomain));
   if (hit) {
-    return { kind: "ranked", position: hit.rank_group > SERP_DEPTH ? NOT_RANKED_POSITION : hit.rank_group };
+    return { kind: "ranked", position: positionFromRankGroup(hit.rank_group) };
   }
   if (partial) return error(task.status_code, task.status_message);
   return { kind: "ranked", position: NOT_RANKED_POSITION };

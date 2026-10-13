@@ -1,6 +1,7 @@
 import { formatMonthHeader, NOT_RANKED_POSITION, VISIBILITY_LABEL, visibilityFor, type GridRow, type MonthKey } from "@lvt/shared";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { useLayoutEffect, useRef } from "react";
+import { checkedSuffix } from "@/lib/format";
 import { trendBetween } from "@/lib/insights";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +13,7 @@ const CELL_STYLE = {
 
 const SHORT_LABEL = { visible: "Visible", partly: "Partly vis.", invisible: "Invisible" } as const;
 
-function Cell({ position, previous, latest }: { position: number | null | undefined; previous: number | null | undefined; latest: boolean }) {
+function Cell({ position, previous, latest, checkedAt }: { position: number | null | undefined; previous: number | null | undefined; latest: boolean; checkedAt: string | null | undefined }) {
   if (position === null || position === undefined) {
     return (
       <td className={cn("p-1.5", latest && "bg-panel/70")} aria-label="No data">
@@ -23,7 +24,7 @@ function Cell({ position, previous, latest }: { position: number | null | undefi
   const visibility = visibilityFor(position)!;
   const notRanked = position === NOT_RANKED_POSITION;
   const trend = trendBetween(previous, position);
-  const title = `${VISIBILITY_LABEL[visibility]} - ${notRanked ? "not in the top 100" : `position ${position}`}${trend && trend.direction !== "same" ? ` (${trend.direction} ${trend.places})` : ""}`;
+  const title = `${VISIBILITY_LABEL[visibility]} - ${notRanked ? "not in the top 100" : `position ${position}`}${trend && trend.direction !== "same" ? ` (${trend.direction} ${trend.places})` : ""}${checkedSuffix(checkedAt)}`;
   return (
     <td className={cn("p-1.5", latest && "bg-panel/70")} title={title}>
       <div className={cn("relative flex h-11 flex-col items-center justify-center rounded", CELL_STYLE[visibility], latest && "ring-1 ring-current/25")}>
@@ -92,7 +93,7 @@ export function RankingTable({ rows, months }: { rows: GridRow[]; months: MonthK
               <tr key={row.key} className="group">
                 <td className="sticky left-0 z-10 border-b border-slate-100 bg-white px-3 py-1.5 font-medium text-slate-800 group-hover:bg-panel">{row.label}</td>
                 {months.map((m, i) => (
-                  <Cell key={m} position={row.positions[m]} previous={i > 0 ? row.positions[months[i - 1]!] : undefined} latest={m === latestMonth} />
+                  <Cell key={m} position={row.positions[m]} previous={i > 0 ? row.positions[months[i - 1]!] : undefined} latest={m === latestMonth} checkedAt={row.checkedAt[m]} />
                 ))}
               </tr>
             ),

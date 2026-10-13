@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Check, Info, Pencil, Plus, Trash2 } from "lucide-react";
+import { Archive, ArrowDown, ArrowUp, Check, Info, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -68,9 +68,16 @@ export function PhraseManagerDialog({
     run.mutate(() => data.swapSortOrder(table, first, second));
   };
 
-  const removePhrase = (phrase: Phrase) => {
-    if (confirm(`Delete "${phrase.phrase_text}" and its ranking history?`)) run.mutate(() => data.deletePhrase(phrase.id));
+  const archivePhrase = (phrase: Phrase) => {
+    if (confirm(`Stop tracking "${phrase.phrase_text}"? Its ranking history is kept, and adding the phrase again brings it back.`)) {
+      run.mutate(() => data.archivePhrase(phrase.id));
+    }
   };
+
+  const addPhrase = (groupId: string | null, text: string, sortOrder: number) =>
+    run.mutate(async () => {
+      if ((await data.addPhrase(leadId, groupId, text, sortOrder)) === "restored") toast.success(`"${text}" is tracked again, with its ranking history`);
+    });
 
   const removeGroup = (group: BuyerGroup) => {
     if (confirm(`Delete the group "${group.name}"? Its phrases are kept as ungrouped phrases.`)) run.mutate(() => data.deleteBuyerGroup(group.id));
@@ -88,13 +95,13 @@ export function PhraseManagerDialog({
             <Button size="icon" variant="ghost" aria-label="Move phrase down" disabled={index === list.length - 1 || run.isPending} onClick={() => move("phrases", list, index, 1)}>
               <ArrowDown className="h-3.5 w-3.5" />
             </Button>
-            <Button size="icon" variant="ghost" aria-label={`Delete ${phrase.phrase_text}`} disabled={run.isPending} onClick={() => removePhrase(phrase)}>
-              <Trash2 className="h-3.5 w-3.5 text-slate-500" />
+            <Button size="icon" variant="ghost" aria-label={`Stop tracking ${phrase.phrase_text}`} title="Stop tracking (history is kept)" disabled={run.isPending} onClick={() => archivePhrase(phrase)}>
+              <Archive className="h-3.5 w-3.5 text-slate-500" />
             </Button>
           </li>
         ))}
       </ul>
-      <AddPhraseForm disabled={run.isPending} onAdd={(text) => run.mutate(() => data.addPhrase(leadId, groupId, text, nextOrder(list)))} />
+      <AddPhraseForm disabled={run.isPending} onAdd={(text) => addPhrase(groupId, text, nextOrder(list))} />
     </>
   );
 
@@ -106,7 +113,7 @@ export function PhraseManagerDialog({
         <div className="space-y-5">
           <p className="flex items-start gap-2 rounded-md border border-slate-200 bg-panel px-3 py-2.5 text-xs text-slate-600">
             <Info className="mt-px h-4 w-4 shrink-0" />
-            Buyer groups appear as heading rows in the ranking table. New phrases get rankings on the next pull.
+            Buyer groups appear as heading rows in the ranking table. New phrases get rankings on the next pull. Phrases you stop tracking keep their history.
           </p>
           {ungrouped.length > 0 ? (
             <section className="overflow-hidden rounded-md border border-slate-200">
@@ -183,7 +190,7 @@ export function PhraseManagerDialog({
           {sortedGroups.length === 0 && ungrouped.length === 0 ? (
             <div className="rounded-md border border-dashed border-slate-300">
               <p className="px-4 pt-3 text-xs text-slate-500">Or add phrases without a group:</p>
-              <AddPhraseForm disabled={run.isPending} onAdd={(text) => run.mutate(() => data.addPhrase(leadId, null, text, 1))} />
+              <AddPhraseForm disabled={run.isPending} onAdd={(text) => addPhrase(null, text, 1)} />
             </div>
           ) : null}
         </div>
