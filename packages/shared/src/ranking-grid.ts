@@ -89,6 +89,33 @@ export function positionText(position: number | null | undefined): string {
   return position === NOT_RANKED_POSITION ? `${label} (not in top 100)` : `${label} (#${position})`;
 }
 
+/** CSV cell: the bare position, "Not in top 100", or blank for no data. */
+export function csvPositionText(position: number | null | undefined): string {
+  if (position === null || position === undefined) return "";
+  return position === NOT_RANKED_POSITION ? "Not in top 100" : String(position);
+}
+
+function csvField(value: string): string {
+  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+/**
+ * Stage 1 "Copy as CSV": the full ranking table, one row per phrase with its buyer group, one column
+ * per month (oldest first), for pasting into Claude Chat or a spreadsheet.
+ */
+export function buildRankingCsv(rows: GridRow[], months: MonthKey[]): string {
+  const lines = [["Buyer group", "Phrase", ...months.map(formatMonthHeader)]];
+  let group = "";
+  for (const row of rows) {
+    if (row.kind === "heading") {
+      group = row.label;
+      continue;
+    }
+    lines.push([group, row.label, ...months.map((m) => csvPositionText(row.positions[m]))]);
+  }
+  return lines.map((line) => line.map(csvField).join(",")).join("\n");
+}
+
 export const CHATGPT_HISTORY_MONTHS = 6;
 
 export interface ChatGptCopyInput {

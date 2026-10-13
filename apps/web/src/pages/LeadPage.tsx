@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { buildChatGptCopy, buildRankingGrid, historyMonths } from "@lvt/shared";
-import { BarChart3, ClipboardCopy, ExternalLink, ListTree, MapPin, RefreshCw, RotateCcw, Tag } from "lucide-react";
+import { buildChatGptCopy, buildRankingCsv, buildRankingGrid, historyMonths } from "@lvt/shared";
+import { BarChart3, ClipboardCopy, ExternalLink, FileSpreadsheet, ListTree, MapPin, RefreshCw, RotateCcw, Tag } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -106,6 +106,15 @@ export function LeadPage() {
     }
   };
 
+  const copyAsCsv = async () => {
+    try {
+      await copyText(buildRankingCsv(rows, months));
+      toast.success("Copied the rankings table as CSV");
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <nav aria-label="Breadcrumb" className="eyebrow flex items-center gap-2">
@@ -158,6 +167,9 @@ export function LeadPage() {
           />
           <Button variant="secondary" onClick={() => void copyForChatGpt()} title="Copy the brief and recent rankings as a ChatGPT prompt">
             <ClipboardCopy /> Copy for ChatGPT
+          </Button>
+          <Button variant="secondary" onClick={() => void copyAsCsv()} disabled={!hasPhrases} title="Copy the full rankings table as CSV, ready to paste into Claude or a spreadsheet">
+            <FileSpreadsheet /> Copy as CSV
           </Button>
         </div>
       </header>

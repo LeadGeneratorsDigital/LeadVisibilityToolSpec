@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildChatGptCopy, buildRankingGrid, historyMonths, positionText } from "./ranking-grid";
+import { buildChatGptCopy, buildRankingCsv, buildRankingGrid, csvPositionText, historyMonths, positionText } from "./ranking-grid";
 
 const groups = [
   { id: "g2", name: "Warehouse Cleaning", sort_order: 2 },
@@ -74,6 +74,58 @@ describe("positionText", () => {
     [undefined, ""],
   ])("%s -> %j", (position, expected) => {
     expect(positionText(position)).toBe(expected);
+  });
+});
+
+describe("buildRankingCsv", () => {
+  const rankings = [
+    { phrase_id: "p0", month: "2026-08-01", position: 4 },
+    { phrase_id: "p1", month: "2026-08-01", position: 101 },
+    { phrase_id: "p1", month: "2026-10-01", position: null },
+    { phrase_id: "p3", month: "2026-10-01", position: 12 },
+  ];
+  const months = historyMonths(rankings);
+
+  it("has a header with every month, oldest first, and one row per phrase under its buyer group", () => {
+    expect(buildRankingCsv(buildRankingGrid(groups, phrases, rankings), months).split("\n")).toEqual([
+      "Buyer group,Phrase,Aug 26,Sep 26,Oct 26",
+      ",cleaning company,4,,",
+      "Contracts London,contract cleaning,Not in top 100,,",
+      "Contracts London,factory cleaning,,,",
+      "Warehouse Cleaning,warehouse cleaning,,,12",
+    ]);
+  });
+
+  it("files phrases after an imported is_heading row under that heading", () => {
+    const grid = buildRankingGrid([], [
+      { id: "h", buyer_group_id: null, phrase_text: "Imported heading", is_heading: true, sort_order: 1 },
+      { id: "p", buyer_group_id: null, phrase_text: "office cleaning", is_heading: false, sort_order: 2 },
+    ], []);
+    expect(buildRankingCsv(grid, ["2026-10-01"]).split("\n")[1]).toBe("Imported heading,office cleaning,");
+  });
+
+  it("quotes text holding a comma, quote or line break, doubling inner quotes", () => {
+    const grid = buildRankingGrid([{ id: "g", name: "Leeds, York", sort_order: 1 }], [
+      { id: "a", buyer_group_id: "g", phrase_text: 'the "best" cleaners', is_heading: false, sort_order: 1 },
+      { id: "b", buyer_group_id: "g", phrase_text: "line\nbreak", is_heading: false, sort_order: 2 },
+    ], []);
+    expect(buildRankingCsv(grid, []).split("\n").slice(1, 3)).toEqual(['"Leeds, York","the ""best"" cleaners"', '"Leeds, York","line']);
+  });
+
+  it("is just the header with no phrases", () => {
+    expect(buildRankingCsv([], ["2026-10-01"])).toBe("Buyer group,Phrase,Oct 26");
+  });
+});
+
+describe("csvPositionText", () => {
+  it.each([
+    [1, "1"],
+    [100, "100"],
+    [101, "Not in top 100"],
+    [null, ""],
+    [undefined, ""],
+  ])("%s -> %j", (position, expected) => {
+    expect(csvPositionText(position)).toBe(expected);
   });
 });
 
