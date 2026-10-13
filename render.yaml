@@ -14,11 +14,16 @@ services:
         value: production
       - key: NODE_VERSION
         value: "22"
-      # Demo deploy on mock DataForSEO; set DATAFORSEO_MODE=live and remove this once the real login exists.
+      # Test deploy on the DataForSEO sandbox (dummy SERPs); set DATAFORSEO_MODE=live and remove
+      # ALLOW_MOCKS once the client's funded login is in DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD.
       - key: ALLOW_MOCKS
         value: "true"
       - key: DATAFORSEO_MODE
-        value: mock
+        value: sandbox
+      - key: DATAFORSEO_LOGIN
+        sync: false
+      - key: DATAFORSEO_PASSWORD
+        sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
