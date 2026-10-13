@@ -31,6 +31,12 @@ export function formatMonthHeader(month: MonthKey): string {
   return `${MONTH_ABBR[monthIndex]} ${String(year % 100).padStart(2, "0")}`;
 }
 
+/** Three-letter month plus four-digit year, e.g. "Oct 2026" - for exports, where "Oct 26" could read as a day. */
+export function formatMonthLong(month: MonthKey): string {
+  const { year, monthIndex } = parseMonthKey(month);
+  return `${MONTH_ABBR[monthIndex]} ${year}`;
+}
+
 /** The `count` months ending at `latest`, oldest first. */
 export function monthsEndingAt(latest: MonthKey, count: number): MonthKey[] {
   const { year, monthIndex } = parseMonthKey(latest);

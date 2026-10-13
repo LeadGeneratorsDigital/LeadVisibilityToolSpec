@@ -1,5 +1,5 @@
 import type { MonthKey } from "./month";
-import { formatMonthHeader, monthsEndingAt } from "./month";
+import { formatMonthHeader, formatMonthLong, monthsEndingAt } from "./month";
 import { NOT_RANKED_POSITION, VISIBILITY_LABEL, visibilityFor } from "./visibility";
 
 export interface BuyerGroupInput {
@@ -104,7 +104,7 @@ function csvField(value: string): string {
  * per month (oldest first), for pasting into Claude Chat or a spreadsheet.
  */
 export function buildRankingCsv(rows: GridRow[], months: MonthKey[]): string {
-  const lines = [["Buyer group", "Phrase", ...months.map(formatMonthHeader)]];
+  const lines = [["Buyer group", "Phrase", ...months.map(formatMonthLong)]];
   let group = "";
   for (const row of rows) {
     if (row.kind === "heading") {

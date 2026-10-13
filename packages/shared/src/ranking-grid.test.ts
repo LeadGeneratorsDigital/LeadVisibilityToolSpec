@@ -88,7 +88,7 @@ describe("buildRankingCsv", () => {
 
   it("has a header with every month, oldest first, and one row per phrase under its buyer group", () => {
     expect(buildRankingCsv(buildRankingGrid(groups, phrases, rankings), months).split("\n")).toEqual([
-      "Buyer group,Phrase,Aug 26,Sep 26,Oct 26",
+      "Buyer group,Phrase,Aug 2026,Sep 2026,Oct 2026",
       ",cleaning company,4,,",
       "Contracts London,contract cleaning,Not in top 100,,",
       "Contracts London,factory cleaning,,,",
@@ -113,7 +113,7 @@ describe("buildRankingCsv", () => {
   });
 
   it("is just the header with no phrases", () => {
-    expect(buildRankingCsv([], ["2026-10-01"])).toBe("Buyer group,Phrase,Oct 26");
+    expect(buildRankingCsv([], ["2026-10-01"])).toBe("Buyer group,Phrase,Oct 2026");
   });
 });
 

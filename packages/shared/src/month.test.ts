@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { currentMonthKey, formatMonthHeader, monthsEndingAt } from "./month";
+import { currentMonthKey, formatMonthHeader, formatMonthLong, monthsEndingAt } from "./month";
 
 describe("formatMonthHeader", () => {
   it.each([
@@ -12,6 +12,19 @@ describe("formatMonthHeader", () => {
 
   it.each(["2026-10-02", "2026-13-01", "2026-00-01", "Oct 26"])("rejects non-month key %s", (month) => {
     expect(() => formatMonthHeader(month)).toThrow(RangeError);
+  });
+});
+
+describe("formatMonthLong", () => {
+  it.each([
+    ["2026-10-01", "Oct 2026"],
+    ["2009-01-01", "Jan 2009"],
+  ])("%s -> %s", (month, expected) => {
+    expect(formatMonthLong(month)).toBe(expected);
+  });
+
+  it("rejects a non-month key", () => {
+    expect(() => formatMonthLong("2026-10-02")).toThrow(RangeError);
   });
 });
 

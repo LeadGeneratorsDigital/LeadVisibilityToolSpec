@@ -95,6 +95,8 @@ export function LeadPage() {
 
   const location = locations.data.find((l) => l.code === lead.data.location_code);
   const hasPhrases = rows.some((r) => r.kind === "phrase");
+  // Until rankings load (or if they fail) the table has no months, so a copy would be silently empty.
+  const rankingsReady = rankings.isSuccess;
 
   const copyForChatGpt = async () => {
     const text = buildChatGptCopy({ leadName: lead.data.business_name, brief: draft, rows, rankings: rankings.data ?? [] });
@@ -165,10 +167,10 @@ export function LeadPage() {
               ),
             }))}
           />
-          <Button variant="secondary" onClick={() => void copyForChatGpt()} title="Copy the brief and recent rankings as a ChatGPT prompt">
+          <Button variant="secondary" onClick={() => void copyForChatGpt()} disabled={!rankingsReady} title="Copy the brief and recent rankings as a ChatGPT prompt">
             <ClipboardCopy /> Copy for ChatGPT
           </Button>
-          <Button variant="secondary" onClick={() => void copyAsCsv()} disabled={!hasPhrases} title="Copy the full rankings table as CSV, ready to paste into Claude or a spreadsheet">
+          <Button variant="secondary" onClick={() => void copyAsCsv()} disabled={!hasPhrases || !rankingsReady} title="Copy the full rankings table as CSV, ready to paste into Claude or a spreadsheet">
             <FileSpreadsheet /> Copy as CSV
           </Button>
         </div>
