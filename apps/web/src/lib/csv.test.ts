@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { CsvError, parseCsv } from "./csv";
+import { CsvError, decodeCsv, parseCsv } from "./csv";
+
+describe("decodeCsv", () => {
+  const bytes = (...parts: Array<string | number>) => new Uint8Array(parts.flatMap((p) => (typeof p === "string" ? [...Buffer.from(p)] : [p])));
+
+  it("reads UTF-8, dropping a byte order mark", () => {
+    expect(decodeCsv(bytes(0xef, 0xbb, 0xbf, "Café £5"))).toBe("Café £5");
+  });
+
+  it("reads Excel's Windows-1252 CSV instead of turning accents into replacement characters", () => {
+    expect(decodeCsv(bytes("Caf", 0xe9, " ", 0xa3, "5 ", 0x80))).toBe("Café £5 €");
+  });
+});
 
 describe("parseCsv", () => {
   it("splits plain fields and rows", () => {

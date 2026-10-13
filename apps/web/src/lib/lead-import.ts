@@ -169,11 +169,48 @@ function parseRow(line: number, cells: string[], columns: Map<Field, number>, lo
 type Outcome = { status: ImportRowStatus; message: string | null };
 const error = (...messages: Array<string | null>): Outcome => ({ status: "error", message: messages.filter(Boolean).join("; ") });
 
+interface LeadGroup {
+  rows: ParsedRow[];
+  exists: boolean;
+  merged: Partial<Record<LeadField, { value: string; line: number }>>;
+  errorLine: number | undefined;
+  contacts: ImportContact[];
+  ready: boolean;
+}
+
+function ready(group: LeadGroup): Outcome {
+  group.ready = true;
+  return { status: "ready", message: null };
+}
+
+function groupLeads(parsed: ParsedRow[], existingLeads: Set<string>): Map<string, LeadGroup> {
+  const groups = new Map<string, LeadGroup>();
+  for (const row of parsed) {
+    const key = keywordKey(row.name);
+    const group = groups.get(key) ?? { rows: [], exists: existingLeads.has(key), merged: {}, errorLine: undefined, contacts: [], ready: false };
+    group.rows.push(row);
+    groups.set(key, group);
+  }
+  for (const group of groups.values()) {
+    for (const row of group.rows) {
+      for (const field of LEAD_FIELDS) {
+        const value = row.lead[field];
+        if (value === undefined) continue;
+        const first = group.merged[field];
+        if (!first) group.merged[field] = { value, line: row.line };
+        else if (first.value !== value) row.leadErrors.push(`${LABEL.get(field)} differs from row ${first.line}`);
+      }
+    }
+    group.errorLine = group.rows.find((r) => r.leadErrors.length > 0)?.line;
+  }
+  return groups;
+}
+
 /**
  * Checks a CSV export against the saved leads and contacts. Rows are skipped, never half-imported:
- * a lead that already exists, an email seen on an earlier row or already saved on any lead, and any
- * row with an error. A lead is imported when at least one of its rows is ready; a lead-level error
- * on any row makes every row of that lead an error.
+ * a lead that already exists, an email already saved on any lead or imported by an earlier row, and
+ * any row with an error. A lead is imported when at least one of its rows is ready; a lead-level
+ * error on any row makes every row of that lead an error.
  */
 export function planImport(text: string, context: ImportContext): ImportPlan {
   const table = parseCsv(text)
@@ -186,76 +223,44 @@ export function planImport(text: string, context: ImportContext): ImportPlan {
   if (body.length === 0) throw new ImportFileError("The file has column headings but no rows");
 
   const parsed = body.map((r) => parseRow(r.line, r.cells, columns, context.locations));
-  const existingLeads = new Set(context.leads.map((l) => keywordKey(l.business_name)));
+  const groups = groupLeads(parsed, new Set(context.leads.map((l) => keywordKey(l.business_name))));
   const savedEmails = new Map(context.contacts.map((c) => [c.email.trim().toLowerCase(), c.lead_name]));
-  const firstLineByEmail = new Map<string, number>();
-  for (const row of parsed) {
-    const key = row.contact?.email.toLowerCase();
-    if (key && !firstLineByEmail.has(key)) firstLineByEmail.set(key, row.line);
-  }
+  // Only emails that will actually be imported count, so a skipped row never makes a later one a duplicate.
+  const importedEmails = new Map<string, number>();
 
-  const outcomes = new Map<ParsedRow, Outcome>();
-  const groups = new Map<string, ParsedRow[]>();
-  for (const row of parsed) {
-    if (!row.name) outcomes.set(row, error("Business name is missing"));
-    else groups.set(keywordKey(row.name), [...(groups.get(keywordKey(row.name)) ?? []), row]);
-  }
+  const classify = (row: ParsedRow): Outcome => {
+    if (!row.name) return error("Business name is missing");
+    const group = groups.get(keywordKey(row.name))!;
+    if (group.exists) return { status: "duplicate", message: "Lead already exists - add new contacts on its page" };
+    if (row.leadErrors.length > 0) return error(...row.leadErrors, row.contactError);
+    if (group.errorLine !== undefined) return error(`Lead has an error on row ${group.errorLine}`, row.contactError);
+    if (row.contactError) return error(row.contactError);
+    if (!row.contact) return ready(group);
+    const email = row.contact.email.toLowerCase();
+    const importedOn = importedEmails.get(email);
+    if (importedOn !== undefined) return { status: "duplicate", message: `Same email as row ${importedOn} - contact skipped` };
+    const savedFor = savedEmails.get(email);
+    if (savedFor !== undefined) return { status: "duplicate", message: `Email already saved for ${savedFor} - contact skipped` };
+    if (group.contacts.length >= MAX_CONTACTS) return error(`More than ${MAX_CONTACTS} contacts for this lead`);
+    group.contacts.push(row.contact);
+    importedEmails.set(email, row.line);
+    return ready(group);
+  };
+  const rows = parsed.map((row) => ({ line: row.line, cells: row.cells, ...classify(row) }));
 
   const leads: ImportLead[] = [];
-  for (const [key, rows] of groups) {
-    if (existingLeads.has(key)) {
-      for (const row of rows) outcomes.set(row, { status: "duplicate", message: "Lead already exists - add new contacts on its page" });
-      continue;
-    }
-
-    const merged: Partial<Record<LeadField, { value: string; line: number }>> = {};
-    for (const row of rows) {
-      for (const field of LEAD_FIELDS) {
-        const value = row.lead[field];
-        if (value === undefined) continue;
-        const first = merged[field];
-        if (!first) merged[field] = { value, line: row.line };
-        else if (first.value !== value) row.leadErrors.push(`${LABEL.get(field)} differs from row ${first.line}`);
-      }
-    }
-    const leadErrorLine = rows.find((r) => r.leadErrors.length > 0)?.line;
-
-    const contacts: ImportContact[] = [];
-    for (const row of rows) {
-      outcomes.set(row, classify(row));
-    }
-    if (rows.some((r) => outcomes.get(r)!.status === "ready")) {
-      leads.push({
-        business_name: rows[0]!.name,
-        website_domain: merged.website_domain?.value ?? null,
-        industry: merged.industry?.value ?? null,
-        location_code: merged.location?.value ?? null,
-        status: (merged.status?.value as LeadStatus | undefined) ?? "active",
-        next_email_due: merged.next_email_due?.value ?? null,
-        contacts,
-      });
-    }
-
-    function classify(row: ParsedRow): Outcome {
-      if (row.leadErrors.length > 0) return error(...row.leadErrors, row.contactError);
-      if (leadErrorLine !== undefined) return error(`Lead has an error on row ${leadErrorLine}`, row.contactError);
-      if (row.contactError) return error(row.contactError);
-      if (!row.contact) return { status: "ready", message: null };
-      const email = row.contact.email.toLowerCase();
-      const firstLine = firstLineByEmail.get(email)!;
-      if (firstLine !== row.line) return { status: "duplicate", message: `Same email as row ${firstLine} - contact skipped` };
-      const savedFor = savedEmails.get(email);
-      if (savedFor !== undefined) return { status: "duplicate", message: `Email already saved for ${savedFor} - contact skipped` };
-      if (contacts.length >= MAX_CONTACTS) return error(`More than ${MAX_CONTACTS} contacts for this lead`);
-      contacts.push(row.contact);
-      return { status: "ready", message: null };
-    }
+  for (const group of groups.values()) {
+    if (!group.ready) continue;
+    const { merged } = group;
+    leads.push({
+      business_name: group.rows[0]!.name,
+      website_domain: merged.website_domain?.value ?? null,
+      industry: merged.industry?.value ?? null,
+      location_code: merged.location?.value ?? null,
+      status: (merged.status?.value as LeadStatus | undefined) ?? "active",
+      next_email_due: merged.next_email_due?.value ?? null,
+      contacts: group.contacts,
+    });
   }
-
-  return {
-    headers: heading.cells,
-    ignoredColumns: ignored,
-    rows: parsed.map((row) => ({ line: row.line, cells: row.cells, ...outcomes.get(row)! })),
-    leads,
-  };
+  return { headers: heading.cells, ignoredColumns: ignored, rows, leads };
 }

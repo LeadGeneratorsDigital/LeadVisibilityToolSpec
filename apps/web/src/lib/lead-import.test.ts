@@ -98,6 +98,27 @@ describe("planImport - duplicate emails", () => {
     expect(p.leads.find((l) => l.business_name === "Acme")!.contacts).toEqual([]);
   });
 
+  it.each([
+    ["an existing lead", "Existing Ltd,,,,,,Ann,,ann@new.co", "duplicate"],
+    ["a row without a business name", ",,,,,,Ann,,ann@new.co", "error"],
+    ["a lead with an error", "Bad Co,,,Leeds,,,Ann,,ann@new.co", "error"],
+    ["a contact that does not fit", "Big Co,,,,,,Ann,,ann@new.co", "error"],
+  ])("an email on a skipped row of %s is not a duplicate for a later row", (_, skipped, skippedStatus) => {
+    const full = [1, 2, 3, 4, 5].map((n) => `Big Co,,,,,,P${n},,p${n}@a.co`);
+    const p = plan(...full, skipped, "New Co,,,,,,Ann,,ANN@new.co");
+    expect(p.rows.at(-2)!.status).toBe(skippedStatus);
+    expect(outcome(p).at(-1)).toEqual([8, "ready", null]);
+    expect(p.leads.find((l) => l.business_name === "New Co")!.contacts).toEqual([{ name: "Ann", job_title: null, email: "ANN@new.co" }]);
+  });
+
+  it("a later row is a duplicate of the row that imports the email, not of an earlier skipped one", () => {
+    const p = plan("Existing Ltd,,,,,,Ann,,ann@new.co", "New Co,,,,,,Ann,,ann@new.co", "Third Co,,,,,,Ann,,ann@new.co");
+    expect(outcome(p).slice(1)).toEqual([
+      [3, "ready", null],
+      [4, "duplicate", "Same email as row 3 - contact skipped"],
+    ]);
+  });
+
   it("skips an email already saved on any lead, naming that lead", () => {
     const p = plan("Acme,,,,,,Sam,, saved@old.co.uk ", "Acme,,,,,,Ann,,ann@a.co");
     expect(outcome(p)[0]).toEqual([2, "duplicate", "Email already saved for Old Co - contact skipped"]);
@@ -144,6 +165,11 @@ describe("planImport - row errors", () => {
       [4, "ready", null],
     ]);
     expect(p.leads.map((l) => l.business_name)).toEqual(["Beta"]);
+  });
+
+  it("rows without an error of their own point at the lead's first error row", () => {
+    const p = plan("Acme,,,,,,Bo,,bo@a.co", "Acme,,,Leeds,,,,,", "Acme,,,,pending,,,,");
+    expect(outcome(p)[0]).toEqual([2, "error", "Lead has an error on row 3"]);
   });
 
   it("reports a lead error and a contact error on the same row together", () => {

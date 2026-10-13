@@ -1,5 +1,14 @@
 export class CsvError extends Error {}
 
+/** Google Sheets exports UTF-8, but Excel's plain "CSV" is Windows-1252: read as UTF-8 its "é" would be stored as "\uFFFD". */
+export function decodeCsv(bytes: ArrayBuffer | Uint8Array): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder("windows-1252").decode(bytes);
+  }
+}
+
 /**
  * RFC 4180 CSV as Google Sheets and Excel export it: a quoted field may hold commas, doubled quotes
  * and line breaks. Rows end at LF, CRLF or a lone CR. A leading BOM is dropped.

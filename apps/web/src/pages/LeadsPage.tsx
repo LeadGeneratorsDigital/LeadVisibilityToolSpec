@@ -270,7 +270,7 @@ export function LeadsPage() {
       </div>
 
       <AddLeadDialog open={adding} onOpenChange={setAdding} locations={locations.data ?? []} />
-      <ImportLeadsDialog open={importing} onOpenChange={setImporting} locations={locations.data ?? []} />
+      <ImportLeadsDialog open={importing} onOpenChange={setImporting} />
     </div>
   );
 }

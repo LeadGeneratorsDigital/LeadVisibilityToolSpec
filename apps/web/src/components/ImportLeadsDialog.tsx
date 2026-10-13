@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, FileUp, Upload } from "lucide-react";
 import { useMemo, useRef, useState, type DragEvent } from "react";
 import { toast } from "sonner";
@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge, type BadgeTone } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Segmented } from "@/components/ui/segmented";
-import { data } from "@/lib/data";
-import { IMPORT_TEMPLATE, importSummary, planImport, type ImportPlan, type ImportRowStatus } from "@/lib/lead-import";
-import type { LocationCode } from "@/lib/types";
+import { planImportFile, runImport } from "@/lib/import-file";
+import { IMPORT_TEMPLATE, importSummary, type ImportPlan, type ImportRowStatus } from "@/lib/lead-import";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | ImportRowStatus;
@@ -28,7 +27,7 @@ function downloadTemplate() {
   URL.revokeObjectURL(url);
 }
 
-export function ImportLeadsDialog({ open, onOpenChange, locations }: { open: boolean; onOpenChange: (open: boolean) => void; locations: LocationCode[] }) {
+export function ImportLeadsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const queryClient = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -37,15 +36,16 @@ export function ImportLeadsDialog({ open, onOpenChange, locations }: { open: boo
   const [filter, setFilter] = useState<Filter>("all");
   const [dragging, setDragging] = useState(false);
 
-  const leads = useQuery({ queryKey: ["leads"], queryFn: data.leads, enabled: open });
-  const emails = useQuery({ queryKey: ["contacts", "emails"], queryFn: data.contactEmails, enabled: open });
-  const contextReady = leads.isSuccess && emails.isSuccess;
+  const [checking, setChecking] = useState(false);
+  const latestRead = useRef(0);
 
   const reset = () => {
+    latestRead.current++;
     setFileName(null);
     setPlan(null);
     setFileError(null);
     setFilter("all");
+    setChecking(false);
   };
 
   const close = (next: boolean) => {
@@ -55,11 +55,16 @@ export function ImportLeadsDialog({ open, onOpenChange, locations }: { open: boo
 
   const readFile = async (file: File) => {
     reset();
+    const read = latestRead.current;
     setFileName(file.name);
+    setChecking(true);
     try {
-      setPlan(planImport(await file.text(), { leads: leads.data ?? [], contacts: emails.data ?? [], locations }));
+      const result = await planImportFile(file);
+      if (read === latestRead.current) setPlan(result);
     } catch (err) {
-      setFileError((err as Error).message);
+      if (read === latestRead.current) setFileError((err as Error).message);
+    } finally {
+      if (read === latestRead.current) setChecking(false);
     }
   };
 
@@ -67,14 +72,12 @@ export function ImportLeadsDialog({ open, onOpenChange, locations }: { open: boo
     event.preventDefault();
     setDragging(false);
     const file = event.dataTransfer.files[0];
-    if (file && contextReady) void readFile(file);
+    if (file && !run.isPending) void readFile(file);
   };
 
   const run = useMutation({
-    mutationFn: () => data.importLeads(plan!.leads),
+    mutationFn: () => runImport(plan!, queryClient),
     onSuccess: (count) => {
-      void queryClient.invalidateQueries({ queryKey: ["leads"] });
-      void queryClient.invalidateQueries({ queryKey: ["contacts"] });
       toast.success(`Imported ${count} lead${count === 1 ? "" : "s"}`);
       close(false);
     },
@@ -138,12 +141,11 @@ export function ImportLeadsDialog({ open, onOpenChange, locations }: { open: boo
             <Button variant="ghost" size="sm" onClick={downloadTemplate}>
               <Download /> Template
             </Button>
-            <Button variant="secondary" size="sm" disabled={!contextReady} onClick={() => input.current?.click()}>
-              {contextReady ? (fileName ? "Choose another file" : "Choose file") : "Loading leads..."}
+            <Button variant="secondary" size="sm" disabled={checking || run.isPending} onClick={() => input.current?.click()}>
+              {checking ? "Checking..." : fileName ? "Choose another file" : "Choose file"}
             </Button>
           </div>
 
-          {leads.isError || emails.isError ? <p className="text-sm text-invisible">Could not load the saved leads to check for duplicates. Close and try again.</p> : null}
           {fileError ? <p className="rounded-md bg-invisible-soft px-3 py-2 text-sm text-invisible">{fileError}</p> : null}
 
           {plan && summary ? (
