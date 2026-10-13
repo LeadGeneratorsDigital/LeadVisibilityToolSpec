@@ -13,9 +13,9 @@ const db = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, {
 });
 
 const serp =
-  config.DATAFORSEO_MODE === "live"
-    ? createLiveSerpClient(config.DATAFORSEO_LOGIN!, config.DATAFORSEO_PASSWORD!, fetch, config.DATAFORSEO_TIMEOUT_MS)
-    : createMockSerpClient({ errorRate: config.MOCK_ERROR_RATE, latencyMs: config.MOCK_LATENCY_MS });
+  config.DATAFORSEO_MODE === "mock"
+    ? createMockSerpClient({ errorRate: config.MOCK_ERROR_RATE, latencyMs: config.MOCK_LATENCY_MS })
+    : createLiveSerpClient(config.DATAFORSEO_LOGIN!, config.DATAFORSEO_PASSWORD!, fetch, config.DATAFORSEO_TIMEOUT_MS, config.DATAFORSEO_MODE);
 
 const mode = briefMode(config);
 const brief =

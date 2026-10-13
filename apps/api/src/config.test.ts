@@ -13,6 +13,16 @@ describe("loadConfig", () => {
     expect(loadConfig({ ...base, DATAFORSEO_MODE: "live", DATAFORSEO_LOGIN: "a", DATAFORSEO_PASSWORD: "b" }).DATAFORSEO_MODE).toBe("live");
   });
 
+  it("sandbox mode needs the same DataForSEO login and password", () => {
+    expect(() => loadConfig({ ...base, DATAFORSEO_MODE: "sandbox", DATAFORSEO_LOGIN: "a" })).toThrow("DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD are required in sandbox mode");
+    expect(() => loadConfig({ ...base, DATAFORSEO_MODE: "sandbox", DATAFORSEO_PASSWORD: "b" })).toThrow(/DATAFORSEO_LOGIN/);
+    expect(loadConfig({ ...base, DATAFORSEO_MODE: "sandbox", DATAFORSEO_LOGIN: "a", DATAFORSEO_PASSWORD: "b" }).DATAFORSEO_MODE).toBe("sandbox");
+  });
+
+  it("rejects an unknown DataForSEO mode", () => {
+    expect(() => loadConfig({ ...base, DATAFORSEO_MODE: "staging" })).toThrow(/DATAFORSEO_MODE/);
+  });
+
   it("rejects concurrency above the DataForSEO simultaneous-request cap", () => {
     expect(() => loadConfig({ ...base, PULL_CONCURRENCY: "31" })).toThrow(/PULL_CONCURRENCY/);
   });
@@ -27,6 +37,12 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ ...prod, ANTHROPIC_API_KEY: "sk" })).toThrow(/DATAFORSEO_MODE/);
     expect(loadConfig({ ...prod, ...live }).DATAFORSEO_MODE).toBe("live");
     expect(loadConfig({ ...prod, ALLOW_MOCKS: "true" }).DATAFORSEO_MODE).toBe("mock");
+  });
+
+  it("refuses sandbox dummy data in production unless ALLOW_MOCKS=true", () => {
+    const sandbox = { ...base, NODE_ENV: "production", DATAFORSEO_MODE: "sandbox", DATAFORSEO_LOGIN: "a", DATAFORSEO_PASSWORD: "b" };
+    expect(() => loadConfig(sandbox)).toThrow(/DATAFORSEO_MODE/);
+    expect(loadConfig({ ...sandbox, ALLOW_MOCKS: "true" }).DATAFORSEO_MODE).toBe("sandbox");
   });
 
   it("accepts an optional WEB_DIST", () => {

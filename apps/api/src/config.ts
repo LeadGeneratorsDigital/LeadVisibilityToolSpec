@@ -9,7 +9,7 @@ const schema = z
     CORS_ORIGIN: z.string().default("http://localhost:5173"),
     SUPABASE_URL: z.string().url(),
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-    DATAFORSEO_MODE: z.enum(["mock", "live"]).default("mock"),
+    DATAFORSEO_MODE: z.enum(["mock", "sandbox", "live"]).default("mock"),
     DATAFORSEO_LOGIN: z.string().optional(),
     DATAFORSEO_PASSWORD: z.string().optional(),
     DATAFORSEO_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
@@ -23,8 +23,8 @@ const schema = z
     WEB_DIST: z.string().optional(),
   })
   .superRefine((env, ctx) => {
-    if (env.DATAFORSEO_MODE === "live" && (!env.DATAFORSEO_LOGIN || !env.DATAFORSEO_PASSWORD)) {
-      ctx.addIssue({ code: "custom", path: ["DATAFORSEO_LOGIN"], message: "DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD are required in live mode" });
+    if (env.DATAFORSEO_MODE !== "mock" && (!env.DATAFORSEO_LOGIN || !env.DATAFORSEO_PASSWORD)) {
+      ctx.addIssue({ code: "custom", path: ["DATAFORSEO_LOGIN"], message: `DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD are required in ${env.DATAFORSEO_MODE} mode` });
     }
     if (env.NODE_ENV === "production" && env.ALLOW_MOCKS !== "true" && env.DATAFORSEO_MODE !== "live") {
       ctx.addIssue({ code: "custom", path: ["DATAFORSEO_MODE"], message: "must be live in production (set ALLOW_MOCKS=true for a demo deploy)" });
