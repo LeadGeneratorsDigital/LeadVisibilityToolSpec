@@ -130,6 +130,11 @@ export const data = {
     return "added";
   },
 
+  /** Puts a phrase under another heading (null = none) at `sortOrder`; its rankings belong to the phrase, so they move too. */
+  async movePhrase(id: string, buyerGroupId: string | null, sortOrder: number): Promise<void> {
+    unwrap(await supabase.from("phrases").update({ buyer_group_id: buyerGroupId, sort_order: sortOrder }).eq("id", id).select("id"));
+  },
+
   /** Stops tracking without deleting, so the phrase's ranking history is never lost. */
   async archivePhrase(id: string): Promise<void> {
     unwrap(await supabase.from("phrases").update({ archived_at: new Date().toISOString() }).eq("id", id).select("id"));

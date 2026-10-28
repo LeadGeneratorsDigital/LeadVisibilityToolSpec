@@ -8,6 +8,8 @@ export interface ConfirmOptions {
   confirmLabel: string;
   destructive?: boolean;
   onConfirm: () => void;
+  /** A second, lesser choice shown between Cancel and the main button. */
+  alternative?: { label: string; onSelect: () => void };
 }
 
 /**
@@ -27,6 +29,17 @@ export function useConfirm(): { confirm: (options: ConfirmOptions) => void; dial
               <Button variant="secondary" onClick={() => setPending(null)}>
                 Cancel
               </Button>
+              {pending.alternative ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setPending(null);
+                    pending.alternative!.onSelect();
+                  }}
+                >
+                  {pending.alternative.label}
+                </Button>
+              ) : null}
               <Button
                 variant={pending.destructive ? "destructive" : "primary"}
                 onClick={() => {

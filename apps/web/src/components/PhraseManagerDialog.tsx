@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { data } from "@/lib/data";
+import { planPhraseMove } from "@/lib/phrase-move";
 import type { BuyerGroup, Phrase } from "@/lib/types";
 
 function nextOrder(items: Array<{ sort_order: number }>): number {
@@ -23,7 +25,7 @@ function AddPhraseForm({ onAdd, disabled }: { onAdd: (text: string) => void; dis
   };
   return (
     <form onSubmit={submit} className="flex gap-2 border-t border-slate-200 px-4 py-3">
-      <Input aria-label="New phrase" placeholder="Add a buyer phrase, e.g. contract cleaning services london" value={text} onChange={(e) => setText(e.target.value)} />
+      <Input aria-label="New phrase" placeholder="Add a key phrase, e.g. contract cleaning services london" value={text} onChange={(e) => setText(e.target.value)} />
       <Button type="submit" size="sm" variant="secondary" disabled={disabled || !text.trim()}>
         <Plus className="h-3.5 w-3.5" /> Add
       </Button>
@@ -74,7 +76,7 @@ export function PhraseManagerDialog({
   const archivePhrase = (phrase: Phrase) =>
     confirm({
       title: "Stop tracking this phrase?",
-      description: `"${phrase.phrase_text}" will no longer be pulled. Its ranking history is kept, and adding the phrase again brings it back.`,
+      description: `"${phrase.phrase_text}" will no longer be checked. Its ranking history is kept, and adding the phrase again brings it back.`,
       confirmLabel: "Stop tracking",
       onConfirm: () => run.mutate(() => data.archivePhrase(phrase.id)),
     });
@@ -84,11 +86,17 @@ export function PhraseManagerDialog({
       if ((await data.addPhrase(leadId, groupId, text, sortOrder)) === "restored") toast.success(`"${text}" is tracked again, with its ranking history`);
     });
 
+  const movePhrase = (phrase: Phrase, target: string | null) => {
+    const plan = planPhraseMove(phrases, phrase.id, target);
+    if (plan) run.mutate(() => data.movePhrase(phrase.id, plan.buyerGroupId, plan.sortOrder));
+  };
+  const headingOptions = sortedGroups.map((g) => ({ value: g.id, label: g.name }));
+
   const removeGroup = (group: BuyerGroup) =>
     confirm({
-      title: "Delete this buyer group?",
-      description: `"${group.name}" will be deleted. Its phrases are kept as ungrouped phrases.`,
-      confirmLabel: "Delete group",
+      title: "Delete this heading?",
+      description: `"${group.name}" will be deleted. Its phrases are kept, with no heading.`,
+      confirmLabel: "Delete heading",
       destructive: true,
       onConfirm: () => run.mutate(() => data.deleteBuyerGroup(group.id)),
     });
@@ -99,6 +107,16 @@ export function PhraseManagerDialog({
         {list.map((phrase, index) => (
           <li key={phrase.id} className="flex items-center gap-0.5 px-4 py-1.5 text-sm text-slate-800 hover:bg-panel/60">
             <span className="flex-1">{phrase.phrase_text}</span>
+            {headingOptions.length > 0 ? (
+              <Select
+                ariaLabel={`Heading for ${phrase.phrase_text}`}
+                className="mr-1 h-8 w-44 py-1 text-xs"
+                value={groupId}
+                onChange={(target) => movePhrase(phrase, target)}
+                emptyLabel="No heading"
+                options={headingOptions}
+              />
+            ) : null}
             <Button size="icon" variant="ghost" aria-label="Move phrase up" disabled={index === 0 || run.isPending} onClick={() => move("phrases", list, index, -1)}>
               <ArrowUp className="h-3.5 w-3.5" />
             </Button>
@@ -119,15 +137,15 @@ export function PhraseManagerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="Manage buyer phrases" description="Organise the phrases tracked for this lead by buyer group." className="max-w-2xl">
+      <DialogContent title="Manage key phrases" description="Organise the phrases tracked for this lead under your own headings." className="max-w-2xl">
         <div className="space-y-5">
           <p className="flex items-start gap-2 rounded-md border border-slate-200 bg-panel px-3 py-2.5 text-xs text-slate-600">
             <Info className="mt-px h-4 w-4 shrink-0" />
-            Buyer groups appear as heading rows in the ranking table. New phrases get rankings on the next pull. Phrases you stop tracking keep their history.
+            Headings appear as heading rows in the ranking table. Use the box next to a phrase to move it under another heading; its ranking history moves with it. New phrases get rankings on the next update. Phrases you stop tracking keep their history.
           </p>
           {ungrouped.length > 0 ? (
             <section className="overflow-hidden rounded-md border border-slate-200">
-              <h3 className="eyebrow bg-panel px-4 py-2.5">Ungrouped phrases</h3>
+              <h3 className="eyebrow bg-panel px-4 py-2.5">No heading</h3>
               {phraseList(ungrouped, null)}
             </section>
           ) : null}
@@ -144,8 +162,8 @@ export function PhraseManagerDialog({
                       setEditing(null);
                     }}
                   >
-                    <Input aria-label="Group name" className="h-7 text-slate-900" autoFocus value={editing.name} onChange={(e) => setEditing({ id: group.id, name: e.target.value })} />
-                    <Button type="submit" size="icon" variant="ghost" className="text-white hover:bg-white/10" aria-label="Save group name">
+                    <Input aria-label="Heading name" className="h-7 text-slate-900" autoFocus value={editing.name} onChange={(e) => setEditing({ id: group.id, name: e.target.value })} />
+                    <Button type="submit" size="icon" variant="ghost" className="text-white hover:bg-white/10" aria-label="Save heading name">
                       <Check className="h-3.5 w-3.5" />
                     </Button>
                   </form>
@@ -157,25 +175,25 @@ export function PhraseManagerDialog({
                         {phrasesIn(group.id).length} phrase{phrasesIn(group.id).length === 1 ? "" : "s"}
                       </span>
                     </span>
-                    <Button size="icon" variant="ghost" className="text-white hover:bg-white/10" aria-label="Rename group" onClick={() => setEditing({ id: group.id, name: group.name })}>
+                    <Button size="icon" variant="ghost" className="text-white hover:bg-white/10" aria-label="Rename heading" onClick={() => setEditing({ id: group.id, name: group.name })}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                   </>
                 )}
-                <Button size="icon" variant="ghost" className="text-white hover:bg-white/10" aria-label="Move group up" disabled={index === 0 || run.isPending} onClick={() => move("buyer_groups", sortedGroups, index, -1)}>
+                <Button size="icon" variant="ghost" className="text-white hover:bg-white/10" aria-label="Move heading up" disabled={index === 0 || run.isPending} onClick={() => move("buyer_groups", sortedGroups, index, -1)}>
                   <ArrowUp className="h-3.5 w-3.5" />
                 </Button>
                 <Button
                   size="icon"
                   variant="ghost"
                   className="text-white hover:bg-white/10"
-                  aria-label="Move group down"
+                  aria-label="Move heading down"
                   disabled={index === sortedGroups.length - 1 || run.isPending}
                   onClick={() => move("buyer_groups", sortedGroups, index, 1)}
                 >
                   <ArrowDown className="h-3.5 w-3.5" />
                 </Button>
-                <Button size="icon" variant="ghost" className="text-white hover:bg-white/10" aria-label={`Delete group ${group.name}`} disabled={run.isPending} onClick={() => removeGroup(group)}>
+                <Button size="icon" variant="ghost" className="text-white hover:bg-white/10" aria-label={`Delete heading ${group.name}`} disabled={run.isPending} onClick={() => removeGroup(group)}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -192,14 +210,14 @@ export function PhraseManagerDialog({
               setNewGroup("");
             }}
           >
-            <Input aria-label="New buyer group" placeholder="New buyer group, e.g. Industrial Cleaning Contracts London" value={newGroup} onChange={(e) => setNewGroup(e.target.value)} />
+            <Input aria-label="New heading" placeholder="New heading, e.g. Industrial Cleaning Contracts London" value={newGroup} onChange={(e) => setNewGroup(e.target.value)} />
             <Button type="submit" disabled={!newGroup.trim() || run.isPending}>
-              <Plus className="h-4 w-4" /> Add group
+              <Plus className="h-4 w-4" /> Add heading
             </Button>
           </form>
           {sortedGroups.length === 0 && ungrouped.length === 0 ? (
             <div className="rounded-md border border-dashed border-slate-300">
-              <p className="px-4 pt-3 text-xs text-slate-500">Or add phrases without a group:</p>
+              <p className="px-4 pt-3 text-xs text-slate-500">Or add phrases without a heading:</p>
               <AddPhraseForm disabled={run.isPending} onAdd={(text) => addPhrase(null, text, 1)} />
             </div>
           ) : null}

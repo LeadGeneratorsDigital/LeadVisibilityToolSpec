@@ -17,8 +17,6 @@ const schema = z
     MOCK_LATENCY_MS: z.coerce.number().int().min(0).default(800),
     // DataForSEO allows 30 simultaneous requests per account (status 40209).
     PULL_CONCURRENCY: z.coerce.number().int().min(1).max(30).default(10),
-    ANTHROPIC_API_KEY: z.string().optional(),
-    ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5"),
     // Built web app to serve from the API; defaults to apps/web/dist when it exists (see web-dist.ts).
     WEB_DIST: z.string().optional(),
   })
@@ -32,15 +30,6 @@ const schema = z
   });
 
 export type Config = z.infer<typeof schema>;
-
-/**
- * Brief merging is outside the client's Stage 1, so production may run without a Claude key: the
- * feature is then off rather than faked. The mock merger only runs in dev or a demo deploy.
- */
-export function briefMode(config: Pick<Config, "NODE_ENV" | "ALLOW_MOCKS" | "ANTHROPIC_API_KEY">): "claude" | "mock" | "off" {
-  if (config.ANTHROPIC_API_KEY) return "claude";
-  return config.NODE_ENV === "production" && config.ALLOW_MOCKS !== "true" ? "off" : "mock";
-}
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const parsed = schema.safeParse(env);

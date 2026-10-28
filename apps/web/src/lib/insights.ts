@@ -1,32 +1,5 @@
-import { NOT_RANKED_POSITION, VISIBILITY_LABEL, visibilityFor, type GridRow, type MonthKey } from "@lvt/shared";
+import { currentMonthKey, monthsEndingAt, NOT_RANKED_POSITION, VISIBILITY_LABEL, visibilityFor, type GridRow, type MonthKey } from "@lvt/shared";
 import { formatDate } from "./format";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-export type DueTone = "overdue" | "today" | "soon" | "later" | "none";
-
-function dayNumber(isoDate: string): number {
-  const [y, m, d] = isoDate.slice(0, 10).split("-").map(Number);
-  return Math.round(Date.UTC(y!, m! - 1, d!) / DAY_MS);
-}
-
-/** Local calendar date as YYYY-MM-DD. */
-export function todayKey(now = new Date()): string {
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-}
-
-/** "Soon" covers the coming week, matching the dashboard's "due this week" card. */
-export const DUE_SOON_DAYS = 7;
-
-export function dueStatus(date: string | null, today: string): { tone: DueTone; label: string } {
-  if (!date) return { tone: "none", label: "Not set" };
-  const diff = dayNumber(date) - dayNumber(today);
-  if (diff < 0) return { tone: "overdue", label: diff === -1 ? "Overdue 1 day" : `Overdue ${-diff} days` };
-  if (diff === 0) return { tone: "today", label: "Due today" };
-  if (diff === 1) return { tone: "soon", label: "Tomorrow" };
-  if (diff <= DUE_SOON_DAYS) return { tone: "soon", label: `In ${diff} days` };
-  return { tone: "later", label: formatDate(date) };
-}
 
 export function relativeTime(iso: string | null, now: Date): string {
   if (!iso) return "Never";
@@ -66,6 +39,14 @@ export interface LeadRankingCell {
   position: number | null;
 }
 
+/** Months the leads list reads back: some leads are only updated every two or three months. */
+export const VISIBILITY_WINDOW_MONTHS = 6;
+
+/** First month of the leads list's ranking read, the current month included. */
+export function visibilitySinceMonth(now: Date): MonthKey {
+  return monthsEndingAt(currentMonthKey(now), VISIBILITY_WINDOW_MONTHS)[0]!;
+}
+
 /** Per lead: visibility counts for the most recent month that lead has any ranking rows. */
 export function latestVisibilityByLead(cells: LeadRankingCell[]): Map<string, { month: MonthKey; counts: VisibilityCounts }> {
   const latestMonth = new Map<string, MonthKey>();
@@ -79,6 +60,18 @@ export function latestVisibilityByLead(cells: LeadRankingCell[]): Map<string, { 
     result.set(leadId, { month, counts: countVisibility(positions) });
   }
   return result;
+}
+
+/**
+ * Whether `month` already has results, and how many phrases still lack a real position in it: a
+ * failed check is stored blank, a phrase added since the update has no row at all.
+ */
+export function monthUpdateState(rows: GridRow[], month: MonthKey): { updated: boolean; blanks: number } {
+  const phrases = rows.filter((r): r is Extract<GridRow, { kind: "phrase" }> => r.kind === "phrase");
+  return {
+    updated: phrases.some((p) => p.positions[month] !== undefined),
+    blanks: phrases.filter((p) => (p.positions[month] ?? null) === null).length,
+  };
 }
 
 export type Trend = { direction: "up" | "down" | "same"; places: number } | null;
@@ -164,24 +157,15 @@ export function talkingPoints(rows: GridRow[], months: MonthKey[], limit = 4): T
 
 export interface DashboardLead {
   id: string;
-  status: "active" | "paused" | "converted";
-  next_email_due: string | null;
+  status: "lead" | "client";
   last_ranking_pull: string | null;
 }
 
-/** Header numbers for the leads dashboard. Follow-ups and visibility only count active leads. */
-export function dashboardStats(leads: DashboardLead[], visibility: Map<string, { counts: VisibilityCounts }>, today: string) {
-  const active = leads.filter((l) => l.status === "active");
-  let overdue = 0;
-  let dueSoon = 0;
-  for (const lead of active) {
-    const tone = dueStatus(lead.next_email_due, today).tone;
-    if (tone === "overdue") overdue++;
-    if (tone === "today" || tone === "soon") dueSoon++;
-  }
+/** Header numbers for the leads dashboard: lead and client counts, top-20 share and the newest pull. */
+export function dashboardStats(leads: DashboardLead[], visibility: Map<string, { counts: VisibilityCounts }>) {
   let visible = 0;
   let ranked = 0;
-  for (const lead of active) {
+  for (const lead of leads) {
     const counts = visibility.get(lead.id)?.counts;
     if (!counts) continue;
     visible += counts.visible;
@@ -189,10 +173,8 @@ export function dashboardStats(leads: DashboardLead[], visibility: Map<string, {
   }
   const lastPull = leads.reduce<string | null>((latest, l) => (l.last_ranking_pull && (!latest || l.last_ranking_pull > latest) ? l.last_ranking_pull : latest), null);
   return {
-    activeCount: active.length,
-    totalCount: leads.length,
-    overdue,
-    dueSoon,
+    leadCount: leads.filter((l) => l.status === "lead").length,
+    clientCount: leads.filter((l) => l.status === "client").length,
     visibleShare: ranked === 0 ? null : Math.round((visible / ranked) * 100),
     lastPull,
   };

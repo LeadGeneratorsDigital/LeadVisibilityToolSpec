@@ -1,10 +1,9 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { buildChatGptCopy, buildRankingCsv, buildRankingGrid, historyMonths } from "@lvt/shared";
-import { BarChart3, ClipboardCopy, ExternalLink, FileSpreadsheet, ListTree, MapPin, RefreshCw, RotateCcw, Tag } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { buildRankingCsv, buildRankingGrid, currentMonthKey, historyMonths } from "@lvt/shared";
+import { BarChart3, ExternalLink, FileSpreadsheet, ListTree, MapPin, RefreshCw, Tag } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { BriefCard } from "@/components/BriefCard";
 import { ContactsCard } from "@/components/ContactsCard";
 import { LeadDetailsCard } from "@/components/LeadDetailsCard";
 import { PhraseManagerDialog } from "@/components/PhraseManagerDialog";
@@ -21,17 +20,15 @@ import { useUpdateLead } from "@/hooks/useUpdateLead";
 import { api } from "@/lib/api";
 import { copyText } from "@/lib/clipboard";
 import { data } from "@/lib/data";
-import { initials } from "@/lib/insights";
-import { STATUS_LABEL, type LeadStatus } from "@/lib/types";
+import { initials, monthUpdateState } from "@/lib/insights";
+import { STATUS_LABEL, STATUSES } from "@/lib/types";
 import { cn } from "@/lib/utils";
-
-const STATUSES: LeadStatus[] = ["active", "paused", "converted"];
 
 const LEGEND = [
   { label: "Visible 1-20", className: "bg-visible-bar" },
-  { label: "Partly visible 21-50", className: "bg-partly-bar" },
-  { label: "Invisible 51+ or not ranked", className: "bg-invisible-bar" },
-  { label: "No data - pull again", className: "border border-dashed border-slate-400" },
+  { label: "Partly visible 21-100", className: "bg-partly-bar" },
+  { label: "Not Ranked - outside the top 100", className: "bg-invisible-bar" },
+  { label: "No data - the check failed", className: "border border-dashed border-slate-400" },
 ];
 
 function LoadingSkeleton() {
@@ -59,10 +56,6 @@ export function LeadPage() {
   const runs = usePullRuns(id);
   const updateStatus = useUpdateLead(id, "Status updated");
   const [managing, setManaging] = useState(false);
-  const [draft, setDraft] = useState("");
-
-  const savedBrief = lead.data?.brief;
-  useEffect(() => setDraft(savedBrief ?? ""), [savedBrief]);
 
   const rows = useMemo(() => buildRankingGrid(groups.data ?? [], phrases.data ?? [], rankings.data ?? []), [groups.data, phrases.data, rankings.data]);
   const months = useMemo(() => historyMonths(rankings.data ?? []), [rankings.data]);
@@ -76,16 +69,24 @@ export function LeadPage() {
     onError: (err: Error) => toast.error(err.message),
   });
   const busy = pull.isPending || running;
-  const refreshing = busy && pull.variables === true;
 
   const { confirm, dialog: confirmDialog } = useConfirm();
-  const refreshFromGoogle = () =>
-    confirm({
-      title: "Refresh from Google?",
-      description: "Every phrase is checked on Google again now. This uses DataForSEO credit for each phrase, even ones already checked this month.",
-      confirmLabel: "Refresh all phrases",
-      onConfirm: () => pull.mutate(true),
-    });
+  // A second update in the same month replaces that month's results, so it re-checks every phrase;
+  // phrases left blank by a failed check can be filled on their own, which costs only those checks.
+  const thisMonth = currentMonthKey(new Date());
+  const { updated: updatedThisMonth, blanks: blanksThisMonth } = monthUpdateState(rows, thisMonth);
+  const updateRankings = () =>
+    updatedThisMonth
+      ? confirm({
+          title: "Update this month's rankings again?",
+          description: `Every phrase is checked on Google again and replaces this month's results. This uses DataForSEO credit for each phrase.${
+            blanksThisMonth > 0 ? ` To check only the ${blanksThisMonth} phrase${blanksThisMonth === 1 ? "" : "s"} with no result this month, fill the blanks instead.` : ""
+          }`,
+          confirmLabel: "Update all phrases",
+          onConfirm: () => pull.mutate(true),
+          alternative: blanksThisMonth > 0 ? { label: `Fill ${blanksThisMonth} blank${blanksThisMonth === 1 ? "" : "s"}`, onSelect: () => pull.mutate(false) } : undefined,
+        })
+      : pull.mutate(false);
 
   if (lead.isError) {
     return (
@@ -106,16 +107,6 @@ export function LeadPage() {
   const hasPhrases = rows.some((r) => r.kind === "phrase");
   // Until rankings load (or if they fail) the table has no months, so a copy would be silently empty.
   const rankingsReady = rankings.isSuccess;
-
-  const copyForChatGpt = async () => {
-    const text = buildChatGptCopy({ leadName: lead.data.business_name, brief: draft, rows, rankings: rankings.data ?? [] });
-    try {
-      await copyText(text);
-      toast.success("Copied - paste into ChatGPT to draft a follow-up");
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
-  };
 
   const copyAsCsv = async () => {
     try {
@@ -176,9 +167,6 @@ export function LeadPage() {
               ),
             }))}
           />
-          <Button variant="secondary" onClick={() => void copyForChatGpt()} disabled={!rankingsReady} title="Copy the brief and recent rankings as a ChatGPT prompt">
-            <ClipboardCopy /> Copy for ChatGPT
-          </Button>
           <Button variant="secondary" onClick={() => void copyAsCsv()} disabled={!hasPhrases || !rankingsReady} title="Copy the full rankings table as CSV, ready to paste into Claude or a spreadsheet">
             <FileSpreadsheet /> Copy as CSV
           </Button>
@@ -192,7 +180,6 @@ export function LeadPage() {
         </div>
         <div className="space-y-6 lg:col-span-8">
           {hasPhrases ? <VisibilitySummaryCard rows={rows} months={months} /> : null}
-          <BriefCard lead={lead.data} draft={draft} onDraftChange={setDraft} />
         </div>
       </div>
 
@@ -200,23 +187,14 @@ export function LeadPage() {
         title="Ranking history"
         icon={<BarChart3 />}
         badge={<PullStatus run={run} showSuccess />}
-        description="Google position for each buyer phrase, month by month (desktop, Google UK)."        actions={
+        description={`Google position for each key phrase, month by month (desktop${location ? `, ${location.label}` : ""}).`}
+        actions={
           <>
             <Button size="sm" variant="secondary" onClick={() => setManaging(true)}>
-              <ListTree /> Manage phrases
+              <ListTree /> Manage key phrases
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={refreshFromGoogle}
-              loading={refreshing}
-              disabled={busy || !hasPhrases}
-              title="Check every phrase again, even ones already checked this month"
-            >
-              <RotateCcw /> {refreshing ? "Refreshing..." : "Refresh from Google"}
-            </Button>
-            <Button size="sm" onClick={() => pull.mutate(false)} loading={busy && !refreshing} disabled={busy || !hasPhrases} title="Check phrases not yet ranked this month">
-              <RefreshCw /> {busy && !refreshing ? "Pulling..." : "Pull rankings"}
+            <Button size="sm" onClick={updateRankings} loading={busy} disabled={busy || !hasPhrases || !rankingsReady} title="Check every phrase on Google now and save the results under this month">
+              <RefreshCw /> {busy ? "Updating..." : "Update rankings"}
             </Button>
           </>
         }
@@ -239,11 +217,11 @@ export function LeadPage() {
         ) : (
           <EmptyState
             icon={<BarChart3 />}
-            title="No buyer phrases yet"
-            description="Add the phrases this lead's customers search for, then pull rankings to see where they appear on Google."
+            title="No key phrases yet"
+            description="Add the phrases this lead's customers search for, then update rankings to see where they appear on Google."
             action={
               <Button onClick={() => setManaging(true)}>
-                <ListTree /> Add buyer phrases
+                <ListTree /> Add key phrases
               </Button>
             }
           />

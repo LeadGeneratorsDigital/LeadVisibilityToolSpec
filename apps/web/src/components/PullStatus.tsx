@@ -19,15 +19,15 @@ export function PullStatus({ run, showSuccess = false }: { run: PullRun | undefi
     return (
       <Badge tone="red" title={run.error ?? undefined} className="max-w-72">
         <AlertTriangle aria-hidden />
-        <span className="truncate">Pull failed{run.error ? `: ${run.error}` : ""}</span>
+        <span className="truncate">Update failed{run.error ? `: ${run.error}` : ""}</span>
       </Badge>
     );
   }
   if (run.phrases_failed > 0) {
     return (
-      <Badge tone="amber" title="Some phrases errored and were left blank. Pull again to fill them.">
+      <Badge tone="amber" title="Some phrases errored and were left blank. Update again to fill them.">
         <AlertTriangle aria-hidden />
-        <span>{run.phrases_failed} blank - pull again</span>
+        <span>{run.phrases_failed} blank - update again</span>
       </Badge>
     );
   }

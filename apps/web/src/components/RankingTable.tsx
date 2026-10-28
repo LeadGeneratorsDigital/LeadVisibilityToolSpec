@@ -1,4 +1,4 @@
-import { formatMonthHeader, NOT_RANKED_POSITION, VISIBILITY_LABEL, visibilityFor, type GridRow, type MonthKey } from "@lvt/shared";
+import { formatMonthHeader, NOT_RANKED_LABEL, NOT_RANKED_POSITION, VISIBILITY_LABEL, visibilityFor, type GridRow, type MonthKey } from "@lvt/shared";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { useLayoutEffect, useRef } from "react";
 import { checkedSuffix } from "@/lib/format";
@@ -11,12 +11,12 @@ const CELL_STYLE = {
   invisible: "bg-invisible-soft text-invisible",
 } as const;
 
-const SHORT_LABEL = { visible: "Visible", partly: "Partly vis.", invisible: "Invisible" } as const;
-
 function Cell({ position, previous, latest, checkedAt }: { position: number | null | undefined; previous: number | null | undefined; latest: boolean; checkedAt: string | null | undefined }) {
-  if (position === null || position === undefined) {
+  // Not checked that month (the phrase was added later): blank, as agreed with the client.
+  if (position === undefined) return <td className={cn("p-1.5", latest && "bg-panel/70")} aria-label="Not checked" />;
+  if (position === null) {
     return (
-      <td className={cn("p-1.5", latest && "bg-panel/70")} aria-label="No data">
+      <td className={cn("p-1.5", latest && "bg-panel/70")} aria-label="No data - the check failed" title={`No data - the check failed${checkedSuffix(checkedAt)}`}>
         <div className="flex h-11 items-center justify-center rounded border border-dashed border-slate-300 font-mono text-xs text-slate-400">-</div>
       </td>
     );
@@ -28,8 +28,11 @@ function Cell({ position, previous, latest, checkedAt }: { position: number | nu
   return (
     <td className={cn("p-1.5", latest && "bg-panel/70")} title={title}>
       <div className={cn("relative flex h-11 flex-col items-center justify-center rounded", CELL_STYLE[visibility], latest && "ring-1 ring-current/25")}>
-        <span className="font-mono text-[15px] leading-none font-bold tabular-nums">{notRanked ? ">100" : position}</span>
-        <span className="mt-1 text-[10px] leading-none font-medium">{SHORT_LABEL[visibility]}</span>
+        {notRanked ? (
+          <span className="text-[11px] leading-none font-bold whitespace-nowrap">{NOT_RANKED_LABEL}</span>
+        ) : (
+          <span className="font-mono text-[15px] leading-none font-bold tabular-nums">{position}</span>
+        )}
         {trend && trend.direction !== "same" ? (
           <span className={cn("absolute top-1 right-1", trend.direction === "up" ? "text-visible-bar" : "text-invisible-bar")}>
             {trend.direction === "up" ? <ArrowUp className="h-2.5 w-2.5" strokeWidth={3} /> : <ArrowDown className="h-2.5 w-2.5" strokeWidth={3} />}
@@ -40,7 +43,7 @@ function Cell({ position, previous, latest, checkedAt }: { position: number | nu
   );
 }
 
-/** Zone C table - phrases as rows, months as columns with the latest at the right; buyer groups as dark heading rows. */
+/** Zone C table - phrases as rows, months as columns with the latest at the right; headings as dark rows. */
 export function RankingTable({ rows, months }: { rows: GridRow[]; months: MonthKey[] }) {
   const scroller = useRef<HTMLDivElement>(null);
   const latestMonth = months[months.length - 1];
@@ -51,7 +54,6 @@ export function RankingTable({ rows, months }: { rows: GridRow[]; months: MonthK
     if (el) el.scrollLeft = el.scrollWidth;
   }, [latestMonth, rows.length]);
 
-  let groupNumber = 0;
   const phraseCounts = new Map<string, number>();
   let currentHeading: string | null = null;
   for (const row of rows) {
@@ -64,7 +66,7 @@ export function RankingTable({ rows, months }: { rows: GridRow[]; months: MonthK
       <table className="w-full border-separate border-spacing-0 text-sm">
         <thead>
           <tr className="eyebrow text-slate-700">
-            <th className="sticky left-0 z-10 min-w-64 border-b-2 border-brand-700 bg-white px-3 py-3 text-left font-semibold">Buyer phrase</th>
+            <th className="sticky left-0 z-10 min-w-64 border-b-2 border-brand-700 bg-white px-3 py-3 text-left font-semibold">Key phrase</th>
             {months.map((m) => (
               <th key={m} className={cn("min-w-24 border-b-2 border-brand-700 px-1.5 py-3 text-center font-semibold", m === latestMonth ? "bg-panel text-slate-900" : "bg-white")}>
                 <span className="inline-flex items-center gap-1.5">
@@ -82,7 +84,7 @@ export function RankingTable({ rows, months }: { rows: GridRow[]; months: MonthK
                 <td colSpan={months.length + 1} className="bg-brand-900 px-3 py-2 text-[11px] font-semibold tracking-[0.06em] text-white uppercase">
                   {/* The cell spans every month, so only the label can stay pinned while scrolled right. */}
                   <span className="sticky left-3">
-                    Group {String(++groupNumber).padStart(2, "0")}: {row.label}
+                    {row.label}
                     <span className="ml-3 font-normal tabular-nums tracking-normal text-white/60 normal-case">
                       {phraseCounts.get(row.key) ?? 0} phrase{phraseCounts.get(row.key) === 1 ? "" : "s"}
                     </span>

@@ -1,6 +1,6 @@
 import type { MonthKey } from "./month";
-import { formatMonthHeader, formatMonthLong, monthsEndingAt } from "./month";
-import { NOT_RANKED_POSITION, VISIBILITY_LABEL, visibilityFor } from "./visibility";
+import { formatMonthLong } from "./month";
+import { NOT_RANKED_LABEL, NOT_RANKED_POSITION } from "./visibility";
 
 export interface BuyerGroupInput {
   id: string;
@@ -39,21 +39,16 @@ function bySortOrder<T extends { sort_order: number }>(a: T, b: T): number {
   return a.sort_order - b.sort_order;
 }
 
-function monthIndex(month: MonthKey): number {
-  return Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7)) - 1;
-}
-
-/** Every month from the earliest to the latest ranking, gaps included, oldest first. */
+/**
+ * The months rankings were taken in, oldest first. Months with no check get no column: some leads
+ * are only updated every two or three months.
+ */
 export function historyMonths(rankings: RankingInput[]): MonthKey[] {
-  if (rankings.length === 0) return [];
-  const sorted = rankings.map((r) => r.month).sort();
-  const first = sorted[0]!;
-  const last = sorted[sorted.length - 1]!;
-  return monthsEndingAt(last, monthIndex(last) - monthIndex(first) + 1);
+  return [...new Set(rankings.map((r) => r.month))].sort();
 }
 
 /**
- * Rows in display order: ungrouped phrases first, then each buyer group as a heading followed by
+ * Rows in display order: ungrouped phrases first, then each heading (a buyer_groups row) followed by
  * its phrases. Phrases flagged `is_heading` (FRT import parity) render as heading rows in place.
  * A month with no ranking row is `undefined`; a stored NULL (API error) is `null`.
  */
@@ -82,17 +77,10 @@ export function buildRankingGrid(groups: BuyerGroupInput[], phrases: PhraseInput
   return rows;
 }
 
-/** Plain-text cell for copy/paste. Blank = no data. */
-export function positionText(position: number | null | undefined): string {
-  if (position === null || position === undefined) return "";
-  const label = VISIBILITY_LABEL[visibilityFor(position)!];
-  return position === NOT_RANKED_POSITION ? `${label} (not in top 100)` : `${label} (#${position})`;
-}
-
-/** CSV cell: the bare position, "Not in top 100", or blank for no data. */
+/** CSV cell: the bare position, "Not Ranked", or blank for no data. */
 export function csvPositionText(position: number | null | undefined): string {
   if (position === null || position === undefined) return "";
-  return position === NOT_RANKED_POSITION ? "Not in top 100" : String(position);
+  return position === NOT_RANKED_POSITION ? NOT_RANKED_LABEL : String(position);
 }
 
 function csvField(value: string): string {
@@ -100,11 +88,11 @@ function csvField(value: string): string {
 }
 
 /**
- * Stage 1 "Copy as CSV": the full ranking table, one row per phrase with its buyer group, one column
+ * Stage 1 "Copy as CSV": the full ranking table, one row per phrase with its heading, one column
  * per month (oldest first), for pasting into Claude Chat or a spreadsheet.
  */
 export function buildRankingCsv(rows: GridRow[], months: MonthKey[]): string {
-  const lines = [["Buyer group", "Phrase", ...months.map(formatMonthLong)]];
+  const lines = [["Heading", "Key phrase", ...months.map(formatMonthLong)]];
   let group = "";
   for (const row of rows) {
     if (row.kind === "heading") {
@@ -114,34 +102,4 @@ export function buildRankingCsv(rows: GridRow[], months: MonthKey[]): string {
     lines.push([group, row.label, ...months.map((m) => csvPositionText(row.positions[m]))]);
   }
   return lines.map((line) => line.map(csvField).join(",")).join("\n");
-}
-
-export const CHATGPT_HISTORY_MONTHS = 6;
-
-export interface ChatGptCopyInput {
-  leadName: string;
-  brief: string;
-  rows: GridRow[];
-  rankings: RankingInput[];
-}
-
-/**
- * Spec section 6: lead name on line 1, then the brief, then a tab-separated table of the last
- * six ranking months (ending at the latest month with data) for every phrase.
- */
-export function buildChatGptCopy({ leadName, brief, rows, rankings }: ChatGptCopyInput): string {
-  const all = historyMonths(rankings);
-  const latest = all[all.length - 1];
-  const months = latest ? monthsEndingAt(latest, CHATGPT_HISTORY_MONTHS) : [];
-
-  const table = [["Phrase", ...months.map(formatMonthHeader)].join("\t")];
-  for (const row of rows) {
-    if (row.kind === "heading") {
-      table.push(row.label);
-    } else {
-      table.push([row.label, ...months.map((m) => positionText(row.positions[m]))].join("\t"));
-    }
-  }
-
-  return [leadName, "", brief.trim() || "(No brief yet)", "", "Google rankings - last 6 months", table.join("\n")].join("\n");
 }

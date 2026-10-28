@@ -1,28 +1,6 @@
 import { buildRankingGrid } from "@lvt/shared";
 import { describe, expect, it } from "vitest";
-import { countVisibility, dashboardStats, dueStatus, initials, latestVisibilityByLead, rankingSummary, relativeTime, talkingPoints, trendBetween } from "./insights";
-
-describe("dueStatus", () => {
-  const today = "2026-10-08";
-  it.each([
-    [null, "none", "Not set"],
-    ["2026-10-05", "overdue", "Overdue 3 days"],
-    ["2026-10-07", "overdue", "Overdue 1 day"],
-    ["2026-10-08", "today", "Due today"],
-    ["2026-10-09", "soon", "Tomorrow"],
-    ["2026-10-15", "soon", "In 7 days"],
-  ] as const)("%s -> %s", (date, tone, label) => {
-    expect(dueStatus(date, today)).toEqual({ tone, label });
-  });
-
-  it("more than a week out is 'later' with the date", () => {
-    expect(dueStatus("2026-10-16", today)).toEqual({ tone: "later", label: "16 Oct 2026" });
-  });
-
-  it("crosses a month boundary by calendar days", () => {
-    expect(dueStatus("2026-11-01", "2026-10-31")).toEqual({ tone: "soon", label: "Tomorrow" });
-  });
-});
+import { countVisibility, dashboardStats, initials, latestVisibilityByLead, monthUpdateState, visibilitySinceMonth, rankingSummary, relativeTime, talkingPoints, trendBetween } from "./insights";
 
 describe("relativeTime", () => {
   const now = new Date("2026-10-08T12:00:00Z");
@@ -40,8 +18,44 @@ describe("relativeTime", () => {
 });
 
 describe("countVisibility", () => {
-  it("buckets by spec thresholds and counts NULL/missing as no data", () => {
-    expect(countVisibility([1, 20, 21, 50, 51, 101, null, undefined])).toEqual({ visible: 2, partly: 2, invisible: 2, noData: 2 });
+  it("buckets by the Stage 1 bands and counts NULL/missing as no data", () => {
+    expect(countVisibility([1, 20, 21, 100, 101, 101, null, undefined])).toEqual({ visible: 2, partly: 2, invisible: 2, noData: 2 });
+  });
+});
+
+describe("monthUpdateState", () => {
+  const phrase = (id: string) => ({ id, buyer_group_id: null, phrase_text: id, is_heading: false, sort_order: 1 });
+  const rows = (rankings: Array<{ phrase_id: string; month: string; position: number | null }>) => buildRankingGrid([], [phrase("a"), phrase("b"), phrase("c")], rankings);
+
+  it("is not updated when the month has no rows, and every phrase is blank", () => {
+    expect(monthUpdateState(rows([{ phrase_id: "a", month: "2026-09-01", position: 3 }]), "2026-10-01")).toEqual({ updated: false, blanks: 3 });
+  });
+
+  it("counts a failed check and a phrase with no row as blanks, not a ranked or Not Ranked one", () => {
+    const grid = rows([
+      { phrase_id: "a", month: "2026-10-01", position: 101 },
+      { phrase_id: "b", month: "2026-10-01", position: null },
+    ]);
+    expect(monthUpdateState(grid, "2026-10-01")).toEqual({ updated: true, blanks: 2 });
+  });
+
+  it("is updated with no blanks when every phrase has a position", () => {
+    const grid = rows(["a", "b", "c"].map((id) => ({ phrase_id: id, month: "2026-10-01", position: 5 })));
+    expect(monthUpdateState(grid, "2026-10-01")).toEqual({ updated: true, blanks: 0 });
+  });
+
+  it("is updated when the only row for the month is a failed check", () => {
+    expect(monthUpdateState(rows([{ phrase_id: "c", month: "2026-10-01", position: null }]), "2026-10-01")).toEqual({ updated: true, blanks: 3 });
+  });
+});
+
+describe("visibilitySinceMonth", () => {
+  it("reaches back far enough for a lead updated every three months", () => {
+    expect(visibilitySinceMonth(new Date("2026-12-15T12:00:00Z"))).toBe("2026-07-01");
+  });
+
+  it("uses the London calendar month: 23:30 UTC on 30 September is already October in London", () => {
+    expect(visibilitySinceMonth(new Date("2026-09-30T23:30:00Z"))).toBe("2026-05-01");
   });
 });
 
@@ -83,7 +97,7 @@ describe("rankingSummary", () => {
         { phrase_id: "a", month: "2026-09-01", position: 30 },
         { phrase_id: "a", month: "2026-10-01", position: 10 },
         { phrase_id: "b", month: "2026-09-01", position: 40 },
-        { phrase_id: "b", month: "2026-10-01", position: 60 },
+        { phrase_id: "b", month: "2026-10-01", position: 101 },
         { phrase_id: "c", month: "2026-10-01", position: null },
       ],
     );
@@ -116,10 +130,10 @@ describe("talkingPoints", () => {
   });
 
   it("counts a 1-place move when it crosses a visibility band, and names the new band", () => {
-    const points = talkingPoints(grid({ out: [20, 21], in: [51, 50] }), MONTHS, 10);
+    const points = talkingPoints(grid({ out: [20, 21], in: [101, 100] }), MONTHS, 10);
     expect(points).toEqual([
       { kind: "slipped", phrase: "out", text: "Fell from #20 to #21 - now partly visible" },
-      { kind: "climbed", phrase: "in", text: "Climbed from #51 to #50" },
+      { kind: "climbed", phrase: "in", text: "Climbed from outside the top 100 to #100" },
     ]);
   });
 
@@ -151,38 +165,19 @@ describe("talkingPoints", () => {
 
 describe("dashboardStats", () => {
   const counts = (visible: number, partly: number, invisible: number, noData = 0) => ({ counts: { visible, partly, invisible, noData } });
-  const lead = (id: string, status: "active" | "paused" | "converted", next_email_due: string | null, last_ranking_pull: string | null = null) => ({
-    id,
-    status,
-    next_email_due,
-    last_ranking_pull,
-  });
+  const lead = (id: string, status: "lead" | "client", last_ranking_pull: string | null = null) => ({ id, status, last_ranking_pull });
 
-  it("counts follow-ups and visibility over active leads only, and finds the newest pull across all", () => {
-    const leads = [
-      lead("a", "active", "2026-10-01", "2026-10-05T09:00:00Z"),
-      lead("b", "active", "2026-10-08"),
-      lead("c", "active", "2026-10-12", "2026-10-07T09:00:00Z"),
-      lead("d", "active", "2026-12-01"),
-      lead("p", "paused", "2026-10-01", "2026-10-08T09:00:00Z"),
-    ];
+  it("counts leads and clients, shares visibility across both, and finds the newest pull", () => {
+    const leads = [lead("a", "lead", "2026-10-05T09:00:00Z"), lead("b", "lead"), lead("c", "client", "2026-10-08T09:00:00Z"), lead("d", "lead", "2026-10-07T09:00:00Z")];
     const visibility = new Map([
       ["a", counts(3, 1, 0, 5)],
       ["c", counts(1, 1, 2)],
-      ["p", counts(10, 0, 0)],
     ]);
-    expect(dashboardStats(leads, visibility, "2026-10-08")).toEqual({
-      activeCount: 4,
-      totalCount: 5,
-      overdue: 1,
-      dueSoon: 2,
-      visibleShare: 50,
-      lastPull: "2026-10-08T09:00:00Z",
-    });
+    expect(dashboardStats(leads, visibility)).toEqual({ leadCount: 3, clientCount: 1, visibleShare: 50, lastPull: "2026-10-08T09:00:00Z" });
   });
 
   it("has no visible share or last pull when nothing has been ranked", () => {
-    expect(dashboardStats([lead("a", "active", null)], new Map([["a", counts(0, 0, 0, 4)]]), "2026-10-08")).toMatchObject({ visibleShare: null, lastPull: null, overdue: 0, dueSoon: 0 });
+    expect(dashboardStats([lead("a", "lead")], new Map([["a", counts(0, 0, 0, 4)]]))).toEqual({ leadCount: 1, clientCount: 0, visibleShare: null, lastPull: null });
   });
 });
 

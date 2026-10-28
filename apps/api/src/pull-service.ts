@@ -61,13 +61,12 @@ export interface PullRepo {
   /** Writes NULL only when the month has no row yet - an error never erases a real position. */
   saveBlankIfMissing(phraseId: string, month: MonthKey): Promise<void>;
   markLeadPulled(leadId: string, at: Date): Promise<void>;
-  listActiveLeadIds(): Promise<string[]>;
 }
 
 export interface PullDeps {
   repo: PullRepo;
   serp: SerpClient;
-  /** Shared across every lead so pull-all respects the account-wide concurrency limit. */
+  /** Shared across every lead so simultaneous pulls respect the account-wide concurrency limit. */
   limit: <T>(fn: () => Promise<T>) => Promise<T>;
   /**
    * Lead ids this process is pulling. Runs exist only in this process's memory, so a "running" row for
@@ -105,8 +104,8 @@ type Resolution =
   | { source: "fetched"; response: SerpResponse; fetchedAt: Date; snapshotId: string | null };
 
 /**
- * Shared by the leads of one pull-all. An account-level error in any lead stops the rest, and a
- * keyword + location asked for by several leads is resolved once.
+ * Shared by one lead's pull: an account-level error stops the remaining phrases, and a keyword +
+ * location listed twice (the same phrase under two headings) is checked once.
  */
 interface PullBatch {
   failure: string | null;
@@ -133,7 +132,7 @@ function describe(err: unknown): string {
  * other phrases continue. Account-level errors stop the lead and mark the run failed.
  * Without `force`, phrases already ranked this month are skipped, so a repeated pull costs nothing.
  */
-export async function startLeadPull(deps: PullDeps, leadId: string, options: PullOptions = {}, batch: PullBatch = newBatch()): Promise<StartedPull> {
+export async function startLeadPull(deps: PullDeps, leadId: string, options: PullOptions = {}): Promise<StartedPull> {
   const now = deps.now ?? (() => new Date());
   const force = options.force === true;
   // Claimed before the first await so two simultaneous requests cannot both pass the check.
@@ -158,7 +157,7 @@ export async function startLeadPull(deps: PullDeps, leadId: string, options: Pul
     const ranked = force ? new Set<string>() : await deps.repo.listRankedPhraseIds(phrases.map((p) => p.id), month);
     const pending = phrases.filter((p) => !ranked.has(p.id));
     const runId = await deps.repo.createRun(leadId, phrases.length);
-    const job: PullJob = { leadId, runId, domain: target.domain, locationCode: target.locationCode, month, pending, skipped: phrases.length - pending.length, force, now, batch };
+    const job: PullJob = { leadId, runId, domain: target.domain, locationCode: target.locationCode, month, pending, skipped: phrases.length - pending.length, force, now, batch: newBatch() };
     return { runId, done: runPull(deps, job).finally(release) };
   } catch (err) {
     release();
@@ -295,8 +294,7 @@ async function runPull(deps: PullDeps, job: PullJob): Promise<void> {
   await progress;
 
   const ownFatal = (fatal as FatalPullError | null)?.message;
-  const stoppedByOtherLead = !ownFatal && job.batch.failure !== null && done < total ? `Stopped - ${job.batch.failure}` : null;
-  const error = ownFatal ?? stoppedByOtherLead ?? crash ?? (ranked === 0 && job.skipped === 0 ? "Every phrase failed - try pulling again" : null);
+  const error = ownFatal ?? crash ?? (ranked === 0 && job.skipped === 0 ? "Every phrase failed - try updating again" : null);
   const finish = async () => {
     if (ranked > 0) await repo.markLeadPulled(job.leadId, job.now());
     await repo.updateRun(job.runId, {
@@ -318,31 +316,4 @@ async function runPull(deps: PullDeps, job: PullJob): Promise<void> {
       await sleep(delay);
     }
   }
-}
-
-export interface PullAllResult {
-  started: Array<{ leadId: string; runId: string }>;
-  skipped: Array<{ leadId: string; reason: string }>;
-  /** Settles when every started run has finished. */
-  done: Promise<void>;
-}
-
-/** Spec section 6: every active lead is queued at once; one lead failing never stops the others. */
-export async function startPullAll(deps: PullDeps): Promise<PullAllResult> {
-  const leadIds = await deps.repo.listActiveLeadIds();
-  const started: PullAllResult["started"] = [];
-  const skipped: PullAllResult["skipped"] = [];
-  const pending: Promise<void>[] = [];
-  const batch = newBatch();
-
-  for (const leadId of leadIds) {
-    try {
-      const pull = await startLeadPull(deps, leadId, {}, batch);
-      started.push({ leadId, runId: pull.runId });
-      pending.push(pull.done);
-    } catch (err) {
-      skipped.push({ leadId, reason: describe(err) });
-    }
-  }
-  return { started, skipped, done: Promise.all(pending).then(() => undefined) };
 }

@@ -117,9 +117,5 @@ export function createSupabasePullRepo(db: SupabaseClient): PullRepo {
     async markLeadPulled(leadId, at) {
       check(await db.from("leads").update({ last_ranking_pull: at.toISOString() }).eq("id", leadId), "Mark lead pulled");
     },
-
-    async listActiveLeadIds() {
-      return rows(await db.from("leads").select("id").eq("status", "active"), "Load active leads").map((r) => r.id as string);
-    },
   };
 }

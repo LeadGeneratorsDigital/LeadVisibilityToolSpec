@@ -11,7 +11,8 @@ import { Select } from "@/components/ui/select";
 import { data } from "@/lib/data";
 import type { LocationCode } from "@/lib/types";
 
-const EMPTY = { business_name: "", industry: "", location_code: "", website_domain: "" };
+// Most prospects are in the UK; the country decides which Google is checked.
+const EMPTY = { business_name: "", industry: "", location_code: "UK", website_domain: "" };
 
 export function AddLeadDialog({ open, onOpenChange, locations }: { open: boolean; onOpenChange: (open: boolean) => void; locations: LocationCode[] }) {
   const queryClient = useQueryClient();
@@ -45,7 +46,7 @@ export function AddLeadDialog({ open, onOpenChange, locations }: { open: boolean
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         title="Add a new lead"
-        description="You can add contacts and buyer phrases on the lead page next."
+        description="You can add contacts and key phrases on the lead page next."
         footer={
           <>
             <Button variant="ghost" onClick={() => onOpenChange(false)}>

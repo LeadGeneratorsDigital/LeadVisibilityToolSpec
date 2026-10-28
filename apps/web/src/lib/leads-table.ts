@@ -2,7 +2,7 @@ import { INTERRUPTED_RUN_ERROR } from "@lvt/shared";
 import type { Lead, LeadStatus, LocationCode, PullRun } from "./types";
 import { STATUS_LABEL } from "./types";
 
-export type SortKey = "business_name" | "industry" | "location" | "next_email_due" | "last_ranking_pull" | "status";
+export type SortKey = "business_name" | "industry" | "location" | "last_ranking_pull" | "status";
 export type SortDirection = "asc" | "desc";
 
 export interface LeadRow extends Lead {
@@ -51,14 +51,14 @@ export function filterByStatus<T extends { status: LeadStatus }>(rows: T[], stat
 }
 
 export function countByStatus(rows: Array<{ status: LeadStatus }>): Record<StatusFilter, number> {
-  const counts: Record<StatusFilter, number> = { all: rows.length, active: 0, paused: 0, converted: 0 };
+  const counts: Record<StatusFilter, number> = { all: rows.length, lead: 0, client: 0 };
   for (const row of rows) counts[row.status]++;
   return counts;
 }
 
 /**
  * The API marks orphaned runs failed on restart and on the lead's next pull. This is the fallback that
- * unlocks the pull buttons if neither happens; a run still alive past it gets a 409 from the API, not a duplicate.
+ * unlocks the Update rankings button if neither happens; a run still alive past it gets a 409 from the API, not a duplicate.
  */
 export const RUN_PRESUMED_INTERRUPTED_MS = 60 * 60 * 1000;
 
@@ -77,11 +77,14 @@ export function latestRunByLead(runs: PullRun[], now = new Date()): Map<string, 
   return latest;
 }
 
-/** Spec section 4.2: comma-separated, ready to paste into Gmail. Blank and repeated addresses are dropped. */
 export function isEmail(value: string): boolean {
   return /^\S+@\S+\.\S+$/.test(value.trim());
 }
 
+/**
+ * Semicolon-separated for the client's Outlook desktop (POP3), which does not split on commas.
+ * Blank and repeated addresses are dropped.
+ */
 export function joinEmails(emails: string[]): string {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -93,5 +96,5 @@ export function joinEmails(emails: string[]): string {
       out.push(email);
     }
   }
-  return out.join(", ");
+  return out.join("; ");
 }

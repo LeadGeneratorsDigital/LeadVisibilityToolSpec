@@ -30,14 +30,14 @@ beforeEach(() => {
   fake.state.tables = {
     leads: [{ id: "L1", business_name: "Existing Ltd" }],
     contacts: [{ email: "sam@old.co", leads: { business_name: "Old Co" } }],
-    location_codes: [{ code: "LDS", label: "Leeds", data4seo_location_code: 1 }],
+    location_codes: [{ code: "ZA", label: "South Africa", data4seo_location_code: 2710 }],
   };
   fake.state.rpc = [];
 });
 
 describe("planImportFile", () => {
   it("checks the file against the saved leads, contact emails and locations it reads at that moment", async () => {
-    const file = new Blob([`${HEAD}\nExisting Ltd,,Ann,ann@a.co\nNew Co,Leeds,Sam,SAM@old.co\nNew Co,,Bo,bo@a.co\n`]);
+    const file = new Blob([`${HEAD}\nExisting Ltd,,Ann,ann@a.co\nNew Co,South Africa,Sam,SAM@old.co\nNew Co,,Bo,bo@a.co\n`]);
     const plan = await planImportFile(file);
     expect(plan.rows.map((r) => [r.line, r.status, r.message])).toEqual([
       [2, "duplicate", "Lead already exists - add new contacts on its page"],
@@ -45,7 +45,7 @@ describe("planImportFile", () => {
       [4, "ready", null],
     ]);
     expect(plan.leads).toEqual([
-      { business_name: "New Co", website_domain: null, industry: null, location_code: "LDS", status: "active", next_email_due: null, contacts: [{ name: "Bo", job_title: null, email: "bo@a.co" }] },
+      { business_name: "New Co", website_domain: null, industry: null, location_code: "ZA", status: "lead", contacts: [{ name: "Bo", job_title: null, email: "bo@a.co" }] },
     ]);
   });
 

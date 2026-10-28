@@ -19,6 +19,4 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 
 export const api = {
   pullLead: (leadId: string, options: { force?: boolean } = {}) => post<{ runId: string }>(`/api/leads/${leadId}/pull`, options.force ? { force: true } : undefined),
-  pullAll: () => post<{ started: Array<{ leadId: string; runId: string }>; skipped: Array<{ leadId: string; reason: string }> }>("/api/pull-all"),
-  mergeBrief: (brief: string, notes: string) => post<{ brief: string; mode: "claude" | "mock" | "off" }>("/api/brief/merge", { brief, notes }),
 };

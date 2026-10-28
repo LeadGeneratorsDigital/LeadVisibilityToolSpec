@@ -68,7 +68,7 @@ describe("CSV import", () => {
   });
 
   it("sends the whole import as one import_leads call and returns the created count", async () => {
-    const leads = [{ business_name: "Acme", website_domain: null, industry: null, location_code: null, status: "active" as const, next_email_due: null, contacts: [] }];
+    const leads = [{ business_name: "Acme", website_domain: null, industry: null, location_code: null, status: "lead" as const, contacts: [] }];
     fake.state.rpcResult = { data: 1, error: null };
     expect(await data.importLeads(leads)).toBe(1);
     expect(fake.state.calls).toEqual(["rpc import_leads"]);
@@ -115,6 +115,20 @@ describe("archived phrases", () => {
     fake.state.tables.phrases = [{ id: "p9", phrase_text: "scaffolding hire leeds" }];
     expect(await data.addPhrase("L1", null, "scaffolding hire", 1)).toBe("added");
     expect(fake.state.calls).toEqual(["insert phrases"]);
+  });
+});
+
+describe("movePhrase", () => {
+  it("updates only that phrase's heading and position, which keeps its rankings with it", async () => {
+    await data.movePhrase("p1", "g2", 8);
+    expect(fake.state.calls).toEqual(["update phrases"]);
+    expect(fake.state.updates).toEqual([{ buyer_group_id: "g2", sort_order: 8 }]);
+    expect(fake.state.filters).toContainEqual(["phrases", "eq", "id", "p1"]);
+  });
+
+  it("moves a phrase out of every heading", async () => {
+    await data.movePhrase("p1", null, 4);
+    expect(fake.state.updates).toEqual([{ buyer_group_id: null, sort_order: 4 }]);
   });
 });
 

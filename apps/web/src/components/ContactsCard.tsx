@@ -52,7 +52,7 @@ export function ContactsCard({ leadId, contacts }: { leadId: string; contacts: C
       toast.error("No saved contact emails to copy");
       return;
     }
-    void copyWithToast(emails, "Emails copied - paste into Gmail");
+    void copyWithToast(emails, "Emails copied - paste into the To field in Outlook");
   };
 
   if (editing) {
@@ -102,7 +102,7 @@ export function ContactsCard({ leadId, contacts }: { leadId: string; contacts: C
       actions={
         contacts.length ? (
           <>
-            <button type="button" className="text-action" onClick={copyAll} title="Copy every email, comma-separated for Gmail">
+            <button type="button" className="text-action" onClick={copyAll} title="Copy every email, separated by semicolons for Outlook">
               <Copy /> Copy all emails
             </button>
             <button type="button" className="text-action" onClick={startEditing}>

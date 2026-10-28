@@ -1,0 +1,26 @@
+# Supabase pauses a free project after 7 days without activity; rankings may only be updated monthly.
+# Once a day this reads one row through the API (which also wakes the free Render service).
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: "23 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call /api/keepalive
+        env:
+          # Repository variable (Settings > Secrets and variables > Actions > Variables), e.g.
+          # https://lead-visibility-api.onrender.com - not a secret, the endpoint needs no key.
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "::error::Set the API_URL repository variable to the Render API address."
+            exit 1
+          fi
+          # A sleeping free Render service can take about a minute to start.
+          curl --fail --silent --show-error --retry 3 --retry-delay 20 --retry-all-errors --max-time 120 "${API_URL%/}/api/keepalive"

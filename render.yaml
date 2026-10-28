@@ -1,8 +1,36 @@
-# API for the Lead Visibility Tool (spec section 3: Render.com). The web app deploys to Vercel from apps/web.
+# Render Blueprint: everything the app needs on Render's free plan (see README "Deploying").
+# The pages are a static site, which never sleeps; only the ranking API sleeps after 15 idle minutes.
 services:
   - type: web
-    name: lead-visibility-api
+    runtime: static
+    name: lead-visibility-web
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @lvt/web build
+    staticPublishPath: apps/web/dist
+    domains:
+      - rankings.leadgenerators.co.uk
+    routes:
+      # Client-side routes (/leads/:id) have no file; the app shell handles them.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      # The API service's URL, e.g. https://lead-visibility-api.onrender.com (no trailing slash).
+      - key: VITE_API_URL
+        sync: false
+
+  - type: web
     runtime: node
+    name: lead-visibility-api
     plan: free
     region: frankfurt
     # NODE_ENV=production makes pnpm skip devDependencies, but the build needs tsup.
@@ -14,12 +42,8 @@ services:
         value: production
       - key: NODE_VERSION
         value: "22"
-      # Test deploy on the DataForSEO sandbox (dummy SERPs); set DATAFORSEO_MODE=live and remove
-      # ALLOW_MOCKS once the client's funded login is in DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD.
-      - key: ALLOW_MOCKS
-        value: "true"
       - key: DATAFORSEO_MODE
-        value: sandbox
+        value: live
       - key: DATAFORSEO_LOGIN
         sync: false
       - key: DATAFORSEO_PASSWORD
@@ -28,8 +52,6 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      # Comma-separated; set to the Vercel production URL, e.g. https://lead-visibility.vercel.app
+      # Comma-separated web origins allowed to call the API.
       - key: CORS_ORIGIN
-        sync: false
-      - key: ANTHROPIC_API_KEY
-        sync: false
+        value: https://rankings.leadgenerators.co.uk,https://lead-visibility-web.onrender.com

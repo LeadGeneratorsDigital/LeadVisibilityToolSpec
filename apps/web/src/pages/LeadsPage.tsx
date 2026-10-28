@@ -1,9 +1,7 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { currentMonthKey, monthsEndingAt } from "@lvt/shared";
-import { ArrowDown, ArrowUp, Building2, Eye, History, MailWarning, Plus, RefreshCw, Search, SearchX, Upload, Users, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowDown, ArrowUp, BadgeCheck, Building2, Eye, History, Plus, Search, SearchX, Upload, Users, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 import { AddLeadDialog } from "@/components/AddLeadDialog";
 import { ImportLeadsDialog } from "@/components/ImportLeadsDialog";
 import { PullStatus } from "@/components/PullStatus";
@@ -14,30 +12,21 @@ import { Avatar, EmptyState } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { usePullRuns } from "@/hooks/usePullRuns";
-import { api } from "@/lib/api";
 import { data } from "@/lib/data";
 import { formatLongDate } from "@/lib/format";
-import { dashboardStats, dueStatus, initials, latestVisibilityByLead, relativeTime, todayKey, type DueTone } from "@/lib/insights";
+import { dashboardStats, initials, latestVisibilityByLead, relativeTime, visibilitySinceMonth } from "@/lib/insights";
 import { countByStatus, filterByStatus, filterLeads, sortLeads, withLocationLabels, type SortDirection, type SortKey, type StatusFilter } from "@/lib/leads-table";
+import { STATUS_LABEL, STATUSES } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const COLUMNS: Array<{ key: SortKey | null; label: string; className?: string }> = [
-  { key: "business_name", label: "Lead" },
+  { key: "business_name", label: "Company" },
   { key: "industry", label: "Industry" },
   { key: "location", label: "Location" },
   { key: null, label: "Visibility" },
-  { key: "next_email_due", label: "Next email due" },
-  { key: "last_ranking_pull", label: "Last ranking pull" },
+  { key: "last_ranking_pull", label: "Last ranking update" },
   { key: "status", label: "Status" },
 ];
-
-const DUE_STYLE: Record<DueTone, string> = {
-  overdue: "bg-invisible-soft text-invisible ring-invisible/20",
-  today: "bg-partly-soft text-partly ring-partly/20",
-  soon: "bg-brand-50 text-brand-700 ring-brand-100",
-  later: "text-slate-600 ring-transparent",
-  none: "text-slate-400 ring-transparent",
-};
 
 function Stat({ label, icon, value, detail, alert = false }: { label: string; icon: ReactNode; value: ReactNode; detail?: ReactNode; alert?: boolean }) {
   return (
@@ -56,7 +45,7 @@ export function LeadsPage() {
   const navigate = useNavigate();
   const leads = useQuery({ queryKey: ["leads"], queryFn: data.leads });
   const locations = useQuery({ queryKey: ["locations"], queryFn: data.locations });
-  const sinceMonth = monthsEndingAt(currentMonthKey(new Date()), 3)[0]!;
+  const sinceMonth = visibilitySinceMonth(new Date());
   const cells = useQuery({ queryKey: ["rankings", "by-lead", sinceMonth], queryFn: () => data.leadRankingCells(sinceMonth) });
   const runs = usePullRuns();
   const [query, setQuery] = useState("");
@@ -65,27 +54,13 @@ export function LeadsPage() {
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  const today = todayKey();
   const now = new Date();
   const labelled = useMemo(() => withLocationLabels(leads.data ?? [], locations.data ?? []), [leads.data, locations.data]);
   const visibility = useMemo(() => latestVisibilityByLead(cells.data ?? []), [cells.data]);
-  const stats = useMemo(() => dashboardStats(labelled, visibility, today), [labelled, visibility, today]);
+  const stats = useMemo(() => dashboardStats(labelled, visibility), [labelled, visibility]);
   const statusCounts = useMemo(() => countByStatus(labelled), [labelled]);
   const rows = useMemo(() => sortLeads(filterByStatus(filterLeads(labelled, query), status), sort.key, sort.direction), [labelled, query, status, sort]);
 
-  const pullAll = useMutation({
-    mutationFn: api.pullAll,
-    onSuccess: (result) => {
-      const skipped = result.skipped.length ? `, ${result.skipped.length} skipped` : "";
-      const reasons = [...new Set(result.skipped.map((s) => s.reason))].join("; ");
-      toast.success(`Pulling rankings for ${result.started.length} active lead(s)${skipped}`, reasons ? { description: reasons } : undefined);
-      // Returned so the button keeps spinning until the runs show as running.
-      return runs.refresh();
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const runningCount = [...runs.latest.values()].filter((r) => r.status === "running").length;
   const toggleSort = (key: SortKey) =>
     setSort((current) => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }));
 
@@ -97,13 +72,9 @@ export function LeadsPage() {
             Leads <span className="mx-1 text-slate-300">/</span> {formatLongDate(now)}
           </p>
           <h1 className="mt-2 font-display text-[32px] leading-10 font-medium tracking-[-0.01em] text-slate-900 sm:text-[44px] sm:leading-[52px] sm:tracking-[-0.02em]">Leads</h1>
-          <p className="mt-1 max-w-xl text-sm text-slate-600">Track Google visibility and follow-ups for every prospect.</p>
+          <p className="mt-1 max-w-xl text-sm text-slate-600">Track Google visibility for every prospect and client.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" onClick={() => pullAll.mutate()} loading={pullAll.isPending || runs.anyRunning} title="Pull this month's rankings for every active lead">
-            <RefreshCw />
-            {runningCount > 0 ? `Pulling ${runningCount} lead${runningCount > 1 ? "s" : ""}...` : pullAll.isPending ? "Starting pull..." : "Pull all rankings"}
-          </Button>
           <Button variant="secondary" onClick={() => setImporting(true)}>
             <Upload /> Import CSV
           </Button>
@@ -114,16 +85,10 @@ export function LeadsPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Stat label="Active leads" icon={<Building2 />} value={stats.activeCount} detail={`of ${stats.totalCount} in total`} />
-        <Stat
-          label="Follow-ups"
-          icon={<MailWarning />}
-          alert={stats.overdue > 0}
-          value={stats.overdue > 0 ? `${stats.overdue} overdue` : `${stats.dueSoon} due`}
-          detail={stats.overdue > 0 ? `${stats.dueSoon} more due this week` : "in the next 7 days"}
-        />
-        <Stat label="Visible phrases" icon={<Eye />} value={stats.visibleShare === null ? "-" : `${stats.visibleShare}%`} detail="in the top 20, active leads" />
-        <Stat label="Last ranking pull" icon={<History />} value={relativeTime(stats.lastPull, now)} detail={stats.lastPull ? "across all leads" : "no pulls yet"} />
+        <Stat label="Leads" icon={<Building2 />} value={stats.leadCount} detail={`of ${labelled.length} in total`} />
+        <Stat label="Clients" icon={<BadgeCheck />} value={stats.clientCount} detail={`of ${labelled.length} in total`} />
+        <Stat label="Visible phrases" icon={<Eye />} value={stats.visibleShare === null ? "-" : `${stats.visibleShare}%`} detail="in the top 20, latest month per lead" />
+        <Stat label="Last ranking update" icon={<History />} value={relativeTime(stats.lastPull, now)} detail={stats.lastPull ? "across all leads" : "no pulls yet"} />
       </div>
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -132,11 +97,11 @@ export function LeadsPage() {
             label="Filter by status"
             value={status}
             onChange={setStatus}
-            options={(["all", "active", "paused", "converted"] as const).map((s) => ({
+            options={(["all", ...STATUSES] as const).map((s) => ({
               value: s,
               label: (
                 <>
-                  <span className="capitalize">{s}</span>
+                  <span>{s === "all" ? "All" : STATUS_LABEL[s]}</span>
                   <span className="rounded-full bg-slate-200/70 px-1.5 text-[11px] text-slate-600 tabular-nums">{statusCounts[s]}</span>
                 </>
               ),
@@ -144,7 +109,7 @@ export function LeadsPage() {
           />
           <div className="relative w-full sm:w-72">
             <Search className="pointer-events-none absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
-            <Input className="pr-8 pl-9" placeholder="Search by lead name" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search leads by name" />
+            <Input className="pr-8 pl-9" placeholder="Search by company name" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search leads by company name" />
             {query ? (
               <button type="button" aria-label="Clear search" onClick={() => setQuery("")} className="absolute top-2 right-2 rounded p-0.5 text-slate-400 hover:text-slate-700">
                 <X className="h-4 w-4" />
@@ -185,7 +150,6 @@ export function LeadsPage() {
                     </tr>
                   ))
                 : rows.map((lead) => {
-                    const due = dueStatus(lead.next_email_due, today);
                     const leadVisibility = visibility.get(lead.id);
                     const ranked = leadVisibility ? leadVisibility.counts.visible + leadVisibility.counts.partly + leadVisibility.counts.invisible : 0;
                     return (
@@ -217,11 +181,6 @@ export function LeadsPage() {
                             <span className="text-xs text-slate-400">No rankings yet</span>
                           )}
                         </td>
-                        <td className="px-3.5 py-3">
-                          <span className={cn("inline-flex rounded px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap ring-1 ring-inset", DUE_STYLE[due.tone], (due.tone === "later" || due.tone === "none") && "px-0 font-normal")}>
-                            {due.label}
-                          </span>
-                        </td>
                         <td className="px-3.5 py-3 tabular-nums text-xs whitespace-nowrap text-slate-600" title={lead.last_ranking_pull ?? undefined}>
                           <div className="flex flex-col items-start gap-1">
                             {relativeTime(lead.last_ranking_pull, now)}
@@ -241,7 +200,7 @@ export function LeadsPage() {
               <EmptyState
                 icon={<Users />}
                 title="No leads yet"
-                description="Add your first lead, then add buyer phrases to start tracking their Google visibility."
+                description="Add your first lead, then add key phrases to start tracking their Google visibility."
                 action={
                   <Button onClick={() => setAdding(true)}>
                     <Plus /> Add lead

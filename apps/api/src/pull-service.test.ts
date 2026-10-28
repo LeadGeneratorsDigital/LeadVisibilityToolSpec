@@ -1,7 +1,7 @@
 import pLimit from "p-limit";
 import { describe, expect, it, vi } from "vitest";
 import type { PullDeps, PullOptions } from "./pull-service";
-import { INTERRUPTED_RUN_ERROR, LeadNotFoundError, PullConflictError, startLeadPull, startPullAll } from "./pull-service";
+import { INTERRUPTED_RUN_ERROR, LeadNotFoundError, PullConflictError, startLeadPull } from "./pull-service";
 import { FakeRepo, scriptedSerp, serpTaskError, serpWithOrganic, unlimited } from "./test-support";
 
 const NOW = new Date("2026-10-08T10:00:00Z");
@@ -477,36 +477,87 @@ describe("saved checks", () => {
   });
 });
 
-describe("startPullAll", () => {
-  it("pulls every active lead, skips paused/converted, and one failing lead does not stop the rest", async () => {
+describe("a phrase listed twice in one lead", () => {
+  it("is checked once and both rows get the position", async () => {
     const repo = new FakeRepo();
-    repo.addLead("A", ["a1"]);
-    repo.addLead("B", ["b1"], { website_domain: null });
-    repo.addLead("C", ["c1"]);
-    repo.addLead("P", ["p1"], { status: "paused" });
-    repo.addLead("X", ["x1"], { status: "converted" });
+    repo.addLead("A", ["scaffolding hire", "Scaffolding  Hire"]);
+    const serp = scriptedSerp(() => serpWithOrganic(["x.co.uk", "lead.co.uk"]));
+
+    const run = await pullOnce(repo, serp, "A");
+
+    expect(serp.calls).toEqual(["scaffolding hire"]);
+    expect([repo.ranking("A-p0", MONTH), repo.ranking("A-p1", MONTH)]).toEqual([2, 2]);
+    expect(repo.snapshots).toHaveLength(1);
+    expect(run).toMatchObject({ status: "succeeded", phrases_done: 2, phrases_failed: 0 });
+  });
+
+  it("shares the in-flight call, before any check is saved", async () => {
+    const repo = new FakeRepo();
+    repo.addLead("A", ["x", "x"]);
+    const calls: string[] = [];
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    const serp = {
+      mode: "live" as const,
+      reusable: true,
+      async fetchSerp(task: { keyword: string }) {
+        calls.push(task.keyword);
+        await held;
+        return serpWithOrganic(["lead.co.uk"]);
+      },
+    };
+
+    const pull = await startLeadPull({ repo, serp, limit: unlimited, inFlight: new Set<string>(), now }, "A");
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 10));
+    release();
+    await pull.done;
+
+    expect(calls).toEqual(["x"]);
+    expect([repo.ranking("A-p0", MONTH), repo.ranking("A-p1", MONTH)]).toEqual([1, 1]);
+  });
+
+  it("is checked once even when the saved-check lookup fails", async () => {
+    const repo = new FakeRepo();
+    repo.addLead("A", ["scaffolding hire", "scaffolding hire"]);
+    repo.findFreshSnapshot = async () => {
+      throw new Error("connection reset");
+    };
     const serp = scriptedSerp(() => serpWithOrganic(["lead.co.uk"]));
 
-    const result = await startPullAll({ repo, serp, limit: unlimited, inFlight: new Set<string>(), now });
-    await result.done;
+    const pull = await startLeadPull({ repo, serp, limit: unlimited, inFlight: new Set<string>(), now, warn: () => {} }, "A");
+    await pull.done;
 
-    expect(result.started.map((s) => s.leadId).sort()).toEqual(["A", "B", "C"]);
-    expect(repo.runs.find((r) => r.leadId === "B")).toMatchObject({ status: "failed" });
-    expect(repo.ranking("A-p0", MONTH)).toBe(1);
-    expect(repo.ranking("C-p0", MONTH)).toBe(1);
-    expect(serp.calls.sort()).toEqual(["a1", "c1"]);
+    expect(serp.calls).toEqual(["scaffolding hire"]);
+    expect([repo.ranking("A-p0", MONTH), repo.ranking("A-p1", MONTH)]).toEqual([1, 1]);
   });
 
-  it("reports a lead that is already running as skipped", async () => {
+  it("is checked per row by a non-reusable (mock) client", async () => {
     const repo = new FakeRepo();
-    repo.addLead("A", ["a1"]);
-    const result = await startPullAll({ repo, serp: scriptedSerp(() => serpWithOrganic([])), limit: unlimited, inFlight: new Set(["A"]), now });
-    expect(result.skipped).toEqual([{ leadId: "A", reason: "A ranking pull is already running for this lead" }]);
+    repo.addLead("A", ["scaffolding hire", "scaffolding hire"]);
+    const serp = scriptedSerp(() => serpWithOrganic(["lead.co.uk"]), false);
+
+    await pullOnce(repo, serp, "A");
+
+    expect(serp.calls).toHaveLength(2);
+  });
+});
+
+describe("separate pulls", () => {
+  it("do not share in-memory checks - only saved ones", async () => {
+    const repo = new FakeRepo();
+    repo.addLead("A", ["x"]);
+    const serp = scriptedSerp(() => serpTaskError(50000));
+
+    await pullOnce(repo, serp, "A");
+    await pullOnce(repo, serp, "A");
+
+    expect(serp.calls).toEqual(["x", "x"]);
   });
 
-  it("runs leads in parallel under one shared concurrency limit", async () => {
+  it("of two leads run under one shared concurrency limit", async () => {
     const repo = new FakeRepo();
-    for (const id of ["A", "B", "C"]) repo.addLead(id, [`${id}1`, `${id}2`]);
+    for (const id of ["A", "B"]) repo.addLead(id, [`${id}1`, `${id}2`]);
     let inFlight = 0;
     let peak = 0;
     const serp = {
@@ -520,137 +571,12 @@ describe("startPullAll", () => {
         return serpWithOrganic(["lead.co.uk"]);
       },
     };
+    const deps = { repo, serp, limit: pLimit(2), inFlight: new Set<string>(), now };
 
-    const result = await startPullAll({ repo, serp, limit: pLimit(2), inFlight: new Set<string>(), now });
-    await result.done;
+    const pulls = await Promise.all(["A", "B"].map((id) => startLeadPull(deps, id)));
+    await Promise.all(pulls.map((p) => p.done));
 
     expect(peak).toBe(2);
     expect(repo.runs.every((r) => r.status === "succeeded")).toBe(true);
-  });
-
-  it("leads tracking the same phrase in the same city share one check, and each gets its own position", async () => {
-    const repo = new FakeRepo();
-    repo.addLead("A", ["scaffolding hire"], { website_domain: "a.co.uk" });
-    repo.addLead("B", ["Scaffolding Hire"], { website_domain: "b.co.uk" });
-    const serp = scriptedSerp(() => serpWithOrganic(["b.co.uk", "a.co.uk"]));
-
-    const result = await startPullAll({ repo, serp, limit: unlimited, inFlight: new Set<string>(), now });
-    await result.done;
-
-    expect(serp.calls).toEqual(["scaffolding hire"]);
-    expect(repo.ranking("A-p0", MONTH)).toBe(2);
-    expect(repo.ranking("B-p0", MONTH)).toBe(1);
-    expect(repo.snapshots).toHaveLength(1);
-    expect(repo.check("A-p0", MONTH)).toEqual({ checkedAt: NOW, snapshotId: "snap-1" });
-    expect(repo.check("B-p0", MONTH)).toEqual({ checkedAt: NOW, snapshotId: "snap-1" });
-  });
-
-  it("leads asking for the same phrase at the same time share the in-flight call, before any check is saved", async () => {
-    const repo = new FakeRepo();
-    repo.addLead("A", ["x"], { website_domain: "a.co.uk" });
-    repo.addLead("B", ["x"], { website_domain: "b.co.uk" });
-    const calls: string[] = [];
-    let release!: () => void;
-    const held = new Promise<void>((r) => (release = r));
-    const serp = {
-      mode: "live" as const,
-      reusable: true,
-      async fetchSerp(task: { keyword: string }) {
-        calls.push(task.keyword);
-        await held;
-        return serpWithOrganic(["a.co.uk", "b.co.uk"]);
-      },
-    };
-
-    const result = await startPullAll({ repo, serp, limit: unlimited, inFlight: new Set<string>(), now });
-    await vi.waitFor(() => expect(calls).toHaveLength(1));
-    await new Promise((r) => setTimeout(r, 10));
-    release();
-    await result.done;
-
-    expect(calls).toEqual(["x"]);
-    expect(repo.snapshots).toHaveLength(1);
-    expect([repo.ranking("A-p0", MONTH), repo.ranking("B-p0", MONTH)]).toEqual([1, 2]);
-  });
-
-  it("a lead with skipped phrases that is stopped by another lead's account error is marked stopped, not succeeded", async () => {
-    const repo = new FakeRepo();
-    repo.addLead("A", ["a1"]);
-    repo.addLead("B", ["b1", "b2"]);
-    repo.rankings.set(`B-p0|${MONTH}`, 5);
-    const serp = scriptedSerp(() => serpTaskError(40200, "payment required."));
-
-    const result = await startPullAll({ repo, serp, limit: pLimit(1), inFlight: new Set<string>(), now });
-    await result.done;
-
-    expect(serp.calls).toEqual(["a1"]);
-    expect(repo.runs.find((r) => r.leadId === "B")).toMatchObject({ status: "failed", error: "Stopped - DataForSEO 40200: payment required.", phrases_done: 1 });
-  });
-
-  it("a failed saved-check lookup does not blank the phrase for every lead sharing it", async () => {
-    const repo = new FakeRepo();
-    for (const id of ["A", "B", "C"]) repo.addLead(id, ["scaffolding hire"]);
-    repo.findFreshSnapshot = async () => {
-      throw new Error("connection reset");
-    };
-    const serp = scriptedSerp(() => serpWithOrganic(["lead.co.uk"]));
-
-    const result = await startPullAll({ repo, serp, limit: unlimited, inFlight: new Set<string>(), now, warn: () => {} });
-    await result.done;
-
-    expect(serp.calls).toEqual(["scaffolding hire"]);
-    expect(["A", "B", "C"].map((id) => repo.ranking(`${id}-p0`, MONTH))).toEqual([1, 1, 1]);
-    expect(repo.runs.every((r) => r.status === "succeeded")).toBe(true);
-  });
-
-  it("the same phrase in different cities is checked once per city", async () => {
-    const repo = new FakeRepo();
-    repo.addLead("A", ["scaffolding hire"]);
-    repo.addLead("B", ["scaffolding hire"], { data4seo_location_code: 1006886 });
-    const serp = scriptedSerp(() => serpWithOrganic(["lead.co.uk"]));
-
-    const result = await startPullAll({ repo, serp, limit: unlimited, inFlight: new Set<string>(), now });
-    await result.done;
-
-    expect(serp.calls).toEqual(["scaffolding hire", "scaffolding hire"]);
-  });
-
-  it("a non-reusable (mock) client checks a shared phrase once per lead", async () => {
-    const repo = new FakeRepo();
-    repo.addLead("A", ["scaffolding hire"]);
-    repo.addLead("B", ["scaffolding hire"]);
-    const serp = scriptedSerp(() => serpWithOrganic(["lead.co.uk"]), false);
-
-    const result = await startPullAll({ repo, serp, limit: unlimited, inFlight: new Set<string>(), now });
-    await result.done;
-
-    expect(serp.calls).toHaveLength(2);
-  });
-
-  it("separate pulls do not share in-memory checks - only saved ones", async () => {
-    const repo = new FakeRepo();
-    repo.addLead("A", ["x"]);
-    const serp = scriptedSerp(() => serpTaskError(50000));
-
-    await pullOnce(repo, serp, "A");
-    await pullOnce(repo, serp, "A");
-
-    expect(serp.calls).toEqual(["x", "x"]);
-  });
-
-  it("an account-level error in one lead stops every other lead in the same pull-all", async () => {
-    const repo = new FakeRepo();
-    for (const id of ["A", "B", "C"]) repo.addLead(id, [`${id}1`, `${id}2`]);
-    const serp = scriptedSerp(() => serpTaskError(40200, "payment required."));
-
-    const result = await startPullAll({ repo, serp, limit: pLimit(1), inFlight: new Set<string>(), now });
-    await result.done;
-
-    expect(serp.calls).toEqual(["A1"]);
-    expect(repo.runs.map((r) => [r.leadId, r.status, r.error])).toEqual([
-      ["A", "failed", "DataForSEO 40200: payment required."],
-      ["B", "failed", "Stopped - DataForSEO 40200: payment required."],
-      ["C", "failed", "Stopped - DataForSEO 40200: payment required."],
-    ]);
   });
 });

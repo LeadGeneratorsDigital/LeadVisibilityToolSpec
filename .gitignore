@@ -7,3 +7,6 @@ dist
 supabase/.temp
 supabase/.branches
 .demo-credentials
+# FRT import reports hold contact emails; the workbook itself never belongs in the repo either.
+frt-import-report*.json
+*.xlsx

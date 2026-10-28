@@ -1,20 +1,11 @@
--- Demo data. Location codes must be re-checked against
--- GET https://api.dataforseo.com/v3/serp/google/locations before going live.
--- City codes for the other regions are set by migration 20261013000002_city_location_codes.
-insert into public.location_codes (code, label, data4seo_location_code) values
-  ('UK', 'United Kingdom', 2826),
-  ('LON', 'London', 1006886);
+-- Demo data for local development. Country location codes come from migration 20261028000001_stage1_scope.
 
 with lead_rows as (
-  insert into public.leads (business_name, industry, location_code, website_domain, status, brief, next_email_due)
+  insert into public.leads (business_name, industry, location_code, website_domain, status)
   values
-    ('BrightClean Industrial Ltd', 'Industrial Cleaning', 'LON', 'brightcleanindustrial.co.uk', 'active',
-     'Family-run contract cleaning firm, 40 staff. Wants more warehouse and factory contracts. MD is Sarah Cole.',
-     current_date + 3),
-    ('Apex Scaffolding Services', 'Scaffolding', 'LON', 'apexscaffold.co.uk', 'active',
-     '', current_date + 10),
-    ('Northern Roofing Co', 'Roofing', 'UK', 'northernroofingco.co.uk', 'paused',
-     'Paused until January - owner busy with a large commercial job.', null)
+    ('BrightClean Industrial Ltd', 'Industrial Cleaning', 'UK', 'brightcleanindustrial.co.uk', 'lead'),
+    ('Apex Scaffolding Services', 'Scaffolding', 'UK', 'apexscaffold.co.uk', 'client'),
+    ('Northern Roofing Co', 'Roofing', 'UK', 'northernroofingco.co.uk', 'lead')
   returning id, business_name
 ),
 contact_rows as (
@@ -61,5 +52,4 @@ join (values
 -- same generator as the mock DataForSEO client.
 
 update public.leads
-set last_ranking_pull = (date_trunc('month', current_date) - interval '1 month' + interval '2 days 9 hours')
-where status <> 'paused';
+set last_ranking_pull = (date_trunc('month', current_date) - interval '1 month' + interval '2 days 9 hours');

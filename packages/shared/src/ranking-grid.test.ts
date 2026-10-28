@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildChatGptCopy, buildRankingCsv, buildRankingGrid, csvPositionText, historyMonths, positionText } from "./ranking-grid";
+import { buildRankingCsv, buildRankingGrid, csvPositionText, historyMonths } from "./ranking-grid";
 
 const groups = [
   { id: "g2", name: "Warehouse Cleaning", sort_order: 2 },
@@ -52,28 +52,17 @@ describe("buildRankingGrid", () => {
 });
 
 describe("historyMonths", () => {
-  it("fills gaps between the first and last month", () => {
+  it("has one column per month a ranking was taken, oldest first, with no column for months between", () => {
     expect(historyMonths([
       { phrase_id: "a", month: "2026-10-01", position: 3 },
-      { phrase_id: "a", month: "2026-07-01", position: 9 },
-    ])).toEqual(["2026-07-01", "2026-08-01", "2026-09-01", "2026-10-01"]);
+      { phrase_id: "b", month: "2026-10-01", position: null },
+      { phrase_id: "a", month: "2026-04-01", position: 9 },
+      { phrase_id: "b", month: "2026-07-01", position: 101 },
+    ])).toEqual(["2026-04-01", "2026-07-01", "2026-10-01"]);
   });
 
   it("is empty with no rankings", () => {
     expect(historyMonths([])).toEqual([]);
-  });
-});
-
-describe("positionText", () => {
-  it.each([
-    [7, "Visible (#7)"],
-    [35, "Partly visible (#35)"],
-    [80, "Invisible (#80)"],
-    [101, "Invisible (not in top 100)"],
-    [null, ""],
-    [undefined, ""],
-  ])("%s -> %j", (position, expected) => {
-    expect(positionText(position)).toBe(expected);
   });
 });
 
@@ -86,13 +75,13 @@ describe("buildRankingCsv", () => {
   ];
   const months = historyMonths(rankings);
 
-  it("has a header with every month, oldest first, and one row per phrase under its buyer group", () => {
+  it("has a header with each checked month, oldest first, and one row per phrase under its heading", () => {
     expect(buildRankingCsv(buildRankingGrid(groups, phrases, rankings), months).split("\n")).toEqual([
-      "Buyer group,Phrase,Aug 2026,Sep 2026,Oct 2026",
-      ",cleaning company,4,,",
-      "Contracts London,contract cleaning,Not in top 100,,",
-      "Contracts London,factory cleaning,,,",
-      "Warehouse Cleaning,warehouse cleaning,,,12",
+      "Heading,Key phrase,Aug 2026,Oct 2026",
+      ",cleaning company,4,",
+      "Contracts London,contract cleaning,Not Ranked,",
+      "Contracts London,factory cleaning,,",
+      "Warehouse Cleaning,warehouse cleaning,,12",
     ]);
   });
 
@@ -113,7 +102,7 @@ describe("buildRankingCsv", () => {
   });
 
   it("is just the header with no phrases", () => {
-    expect(buildRankingCsv([], ["2026-10-01"])).toBe("Buyer group,Phrase,Oct 2026");
+    expect(buildRankingCsv([], ["2026-10-01"])).toBe("Heading,Key phrase,Oct 2026");
   });
 });
 
@@ -121,38 +110,10 @@ describe("csvPositionText", () => {
   it.each([
     [1, "1"],
     [100, "100"],
-    [101, "Not in top 100"],
+    [101, "Not Ranked"],
     [null, ""],
     [undefined, ""],
   ])("%s -> %j", (position, expected) => {
     expect(csvPositionText(position)).toBe(expected);
-  });
-});
-
-describe("buildChatGptCopy", () => {
-  const rankings = [
-    { phrase_id: "p0", month: "2026-10-01", position: 4 },
-    { phrase_id: "p0", month: "2026-03-01", position: 60 },
-    { phrase_id: "p0", month: "2026-04-01", position: 30 },
-  ];
-  const rows = buildRankingGrid([], [phrases[3]!], rankings);
-
-  it("puts the lead name on line 1 and the brief before the table", () => {
-    const lines = buildChatGptCopy({ leadName: "BrightClean", brief: "Family firm.", rows, rankings }).split("\n");
-    expect(lines[0]).toBe("BrightClean");
-    expect(lines.indexOf("Family firm.")).toBeGreaterThan(0);
-    expect(lines.indexOf("Family firm.")).toBeLessThan(lines.findIndex((l) => l.startsWith("Phrase\t")));
-  });
-
-  it("shows exactly the last six months ending at the latest data month, tab-separated", () => {
-    const text = buildChatGptCopy({ leadName: "L", brief: "b", rows, rankings });
-    expect(text).toContain("Phrase\tMay 26\tJun 26\tJul 26\tAug 26\tSep 26\tOct 26");
-    expect(text).toContain("cleaning company\t\t\t\t\t\tVisible (#4)");
-    expect(text).not.toContain("Apr 26");
-  });
-
-  it("includes group headings as their own line", () => {
-    const grid = buildRankingGrid([groups[1]!], [phrases[2]!], []);
-    expect(buildChatGptCopy({ leadName: "L", brief: "", rows: grid, rankings: [] }).split("\n")).toContain("Contracts London");
   });
 });

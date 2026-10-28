@@ -3,16 +3,16 @@ import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { z } from "zod";
-import { BriefDisabledError, type BriefMerger } from "./brief";
 import type { PullDeps } from "./pull-service";
-import { LeadNotFoundError, PullConflictError, startLeadPull, startPullAll } from "./pull-service";
+import { LeadNotFoundError, PullConflictError, startLeadPull } from "./pull-service";
 
 export interface AppDeps {
   corsOrigin: string;
   /** Resolves a Supabase access token to a user id, or null when it is not valid. */
   verifyToken: (token: string) => Promise<string | null>;
   pull: PullDeps;
-  brief: BriefMerger;
+  /** One cheap database read; GET /api/keepalive calls it so a quiet month does not pause the free Supabase project. */
+  pingDatabase: () => Promise<void>;
   /** Background run promises are handed here so tests can await them. */
   onBackgroundWork?: (work: Promise<void>) => void;
   /** Built web app (see findWebDist); when set, the API also serves the site from the same origin. */
@@ -23,10 +23,6 @@ const API_PATH = /^\/api(\/|\?|$)/;
 
 const leadParams = z.object({ id: z.string().uuid() });
 const pullBody = z.object({ force: z.boolean().optional() }).strict().optional();
-const briefBody = z.object({
-  brief: z.string().max(20_000),
-  notes: z.string().trim().min(1, "Notes are required").max(10_000),
-});
 
 export async function buildApp(deps: AppDeps) {
   const app = Fastify({ logger: false });
@@ -51,7 +47,18 @@ export async function buildApp(deps: AppDeps) {
 
   const background = (work: Promise<void>) => deps.onBackgroundWork?.(work);
 
-  app.get("/api/health", async () => ({ ok: true, serpMode: deps.pull.serp.mode, briefMode: deps.brief.mode }));
+  app.get("/api/health", async () => ({ ok: true, serpMode: deps.pull.serp.mode }));
+
+  // Unauthenticated so the daily GitHub Actions job needs no secret; it reads one row and returns nothing from it.
+  app.get("/api/keepalive", async (request, reply) => {
+    try {
+      await deps.pingDatabase();
+      return { ok: true };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(503).send({ error: "Database unavailable" });
+    }
+  });
 
   app.post("/api/leads/:id/pull", { preHandler: authenticate }, async (request, reply) => {
     const params = leadParams.safeParse(request.params);
@@ -66,25 +73,6 @@ export async function buildApp(deps: AppDeps) {
       if (err instanceof LeadNotFoundError) return reply.code(404).send({ error: err.message });
       if (err instanceof PullConflictError) return reply.code(409).send({ error: err.message });
       throw err;
-    }
-  });
-
-  app.post("/api/pull-all", { preHandler: authenticate }, async (_request, reply) => {
-    const result = await startPullAll(deps.pull);
-    background(result.done);
-    return reply.code(202).send({ started: result.started, skipped: result.skipped });
-  });
-
-  app.post("/api/brief/merge", { preHandler: authenticate }, async (request, reply) => {
-    const body = briefBody.safeParse(request.body);
-    if (!body.success) return reply.code(400).send({ error: body.error.issues[0]?.message ?? "Invalid request" });
-    try {
-      const brief = await deps.brief.merge(body.data.brief, body.data.notes);
-      return { brief, mode: deps.brief.mode };
-    } catch (err) {
-      if (err instanceof BriefDisabledError) return reply.code(503).send({ error: err.message });
-      request.log.error(err);
-      return reply.code(502).send({ error: "Could not update the brief - please try again" });
     }
   });
 

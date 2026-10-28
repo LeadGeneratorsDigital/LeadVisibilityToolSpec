@@ -8,9 +8,8 @@ import { Field, Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useUpdateLead } from "@/hooks/useUpdateLead";
 import { formatDate } from "@/lib/format";
-import { dueStatus, relativeTime, todayKey } from "@/lib/insights";
+import { relativeTime } from "@/lib/insights";
 import type { Lead, LocationCode } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -45,14 +44,12 @@ export function LeadDetailsCard({ lead, locations }: { lead: Lead; locations: Lo
         industry: form.industry?.trim() || null,
         location_code: form.location_code || null,
         website_domain: form.website_domain?.trim() ? normalizeDomain(form.website_domain) : null,
-        next_email_due: form.next_email_due || null,
       },
       { onSuccess: () => setEditing(false) },
     );
   };
 
   const location = locations.find((l) => l.code === lead.location_code);
-  const due = dueStatus(lead.next_email_due, todayKey());
 
   if (editing) {
     return (
@@ -70,7 +67,7 @@ export function LeadDetailsCard({ lead, locations }: { lead: Lead; locations: Lo
           <Field label="Industry / category" htmlFor="industry">
             <Input id="industry" value={form.industry ?? ""} onChange={(e) => setForm({ ...form, industry: e.target.value })} />
           </Field>
-          <Field label="Location" htmlFor="location">
+          <Field label="Location" htmlFor="location" hint="The country decides which Google is checked: Google UK, Google South Africa or Google USA.">
             <Select
               id="location"
               value={form.location_code ?? null}
@@ -81,9 +78,6 @@ export function LeadDetailsCard({ lead, locations }: { lead: Lead; locations: Lo
           </Field>
           <Field label="Website domain" htmlFor="domain">
             <Input id="domain" placeholder="example.co.uk" value={form.website_domain ?? ""} onChange={(e) => setForm({ ...form, website_domain: e.target.value })} />
-          </Field>
-          <Field label="Next email due" htmlFor="next-email">
-            <Input id="next-email" type="date" value={form.next_email_due ?? ""} onChange={(e) => setForm({ ...form, next_email_due: e.target.value || null })} />
           </Field>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" size="sm" onClick={() => setEditing(false)} disabled={save.isPending}>
@@ -121,21 +115,7 @@ export function LeadDetailsCard({ lead, locations }: { lead: Lead; locations: Lo
             muted
           )}
         </Row>
-        <Row label="Next email due">
-          {lead.next_email_due ? (
-            <span className="inline-flex items-center gap-2 tabular-nums">
-              {formatDate(lead.next_email_due)}
-              {due.tone === "overdue" || due.tone === "today" ? (
-                <span className={cn("rounded-full px-1.5 py-px text-[11px] font-medium", due.tone === "overdue" ? "bg-invisible-soft text-invisible" : "bg-partly-soft text-partly")}>
-                  {due.tone === "overdue" ? "Overdue" : "Today"}
-                </span>
-              ) : null}
-            </span>
-          ) : (
-            muted
-          )}
-        </Row>
-        <Row label="Last ranking pull">{lead.last_ranking_pull ? relativeTime(lead.last_ranking_pull, new Date()) : muted}</Row>
+        <Row label="Last ranking update">{lead.last_ranking_pull ? relativeTime(lead.last_ranking_pull, new Date()) : muted}</Row>
         <Row label="Date added">
           <span className="tabular-nums text-slate-600">{formatDate(lead.date_added)}</span>
         </Row>

@@ -18,7 +18,7 @@ export interface FakeRun {
 
 /** In-memory PullRepo mirroring the SQL semantics of supabase-repo.ts (upsert vs insert-if-missing, one running run per lead). */
 export class FakeRepo implements PullRepo {
-  leads = new Map<string, PullLead & { status: string; last_ranking_pull: Date | null }>();
+  leads = new Map<string, PullLead & { last_ranking_pull: Date | null }>();
   phrases = new Map<string, Array<PullPhrase & { archived?: boolean }>>();
   rankings = new Map<string, number | null>();
   checks = new Map<string, RankingCheck>();
@@ -27,8 +27,8 @@ export class FakeRepo implements PullRepo {
   failSaveRankingFor = new Set<string>();
   failSaveSnapshot = false;
 
-  addLead(id: string, phrases: string[], overrides: Partial<PullLead & { status: string }> = {}) {
-    this.leads.set(id, { id, website_domain: "lead.co.uk", data4seo_location_code: 2826, status: "active", last_ranking_pull: null, ...overrides });
+  addLead(id: string, phrases: string[], overrides: Partial<PullLead> = {}) {
+    this.leads.set(id, { id, website_domain: "lead.co.uk", data4seo_location_code: 2826, last_ranking_pull: null, ...overrides });
     this.phrases.set(id, phrases.map((text, i) => ({ id: `${id}-p${i}`, phrase_text: text })));
   }
 
@@ -102,9 +102,6 @@ export class FakeRepo implements PullRepo {
   }
   async markLeadPulled(leadId: string, at: Date) {
     this.leads.get(leadId)!.last_ranking_pull = at;
-  }
-  async listActiveLeadIds() {
-    return [...this.leads.values()].filter((l) => l.status === "active").map((l) => l.id);
   }
 }
 

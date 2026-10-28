@@ -7,8 +7,8 @@ import { supabase } from "@/lib/supabase";
 
 const HIGHLIGHTS = [
   { title: "Monthly Google rankings", text: "See where every lead appears for the phrases their buyers search." },
-  { title: "Briefs that stay current", text: "Drop in rough notes and merge them into a clean brief." },
-  { title: "Follow-ups in one click", text: "Copy a ready-made prompt and every contact email." },
+  { title: "Grouped key phrases", text: "Organise phrases under your own headings, month after month." },
+  { title: "Ready to share", text: "Copy the rankings table as CSV and every contact email in one click." },
 ];
 
 /** Spec section 7: email, password and "Sign in" only - no sign-up link. */

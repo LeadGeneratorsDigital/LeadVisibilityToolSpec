@@ -1,49 +1,19 @@
--- Extra demo leads across UK regions. Safe to re-run: leads that already exist are skipped.
--- City location codes are the real DataForSEO ones (same as migration 20261013000002_city_location_codes).
-insert into public.location_codes (code, label, data4seo_location_code) values
-  ('MAN', 'Manchester', 1006912),
-  ('BHM', 'Birmingham', 1006524),
-  ('LDS', 'Leeds', 1006864),
-  ('BRS', 'Bristol', 1006567),
-  ('GLA', 'Glasgow', 1007336),
-  ('EDI', 'Edinburgh', 1007326),
-  ('CDF', 'Cardiff', 1007416),
-  ('RDG', 'Reading', 1007009),
-  ('KEN', 'Kent', 9041088)
-on conflict (code) do nothing;
+-- Extra demo leads for local development. Safe to re-run: leads that already exist are skipped.
 
 with new_leads as (
-  insert into public.leads (business_name, industry, location_code, website_domain, status, brief, next_email_due, date_added)
-  select v.business_name, v.industry, v.location_code, v.website_domain, v.status::public.lead_status, v.brief, v.next_email_due, v.date_added
+  insert into public.leads (business_name, industry, location_code, website_domain, status, date_added)
+  select v.business_name, v.industry, v.location_code, v.website_domain, v.status::public.lead_status, v.date_added
   from (values
-    ('Pennine Commercial Electrical', 'Electrical Contractors', 'MAN', 'penninecommercial.co.uk', 'active',
-     'NICEIC-approved commercial electricians, 25 engineers. Strong on office fit-outs, weak online for EV charger installs. Operations Director Priya Shah handles marketing.',
-     current_date, current_date - 120),
-    ('Midland Fire Protection Ltd', 'Fire Safety', 'BHM', 'midlandfireprotection.co.uk', 'active',
-     'Fire alarm and sprinkler servicing for warehouses and schools. Lost two maintenance contracts last quarter. Wants more inbound enquiries from facilities managers.',
-     current_date - 4, current_date - 95),
-    ('Harbourside Office Interiors', 'Office Fit-out', 'BRS', 'harboursideinteriors.co.uk', 'active',
-     'Design-and-build office fit-out, typical project 150-400k. Recently rebranded. Asked how they compare with two larger Bristol competitors.',
-     current_date + 6, current_date - 80),
-    ('Clyde Industrial Coatings', 'Industrial Coatings', 'GLA', 'clydecoatings.co.uk', 'active',
-     'Protective coatings for steel structures and floors. Mostly repeat work from three main contractors. Open to SEO but budget decisions sit with the founder, Iain Murray.',
-     current_date + 14, current_date - 60),
-    ('Thames Valley Pest Control', 'Pest Control', 'RDG', 'thamesvalleypest.co.uk', 'active',
-     'Commercial pest control for food premises and offices. Busy season starts in spring. Very responsive by email.',
-     current_date + 2, current_date - 45),
-    ('Yorkshire Waste Solutions', 'Waste Management', 'LDS', 'yorkshirewaste.co.uk', 'converted',
-     'Signed in September for a 12-month SEO retainer. Keep ranking reports going as proof of progress.',
-     null, current_date - 150),
-    ('Castle Security Systems', 'Security Systems', 'EDI', 'castlesecurity.co.uk', 'active',
-     'CCTV and access control installer, SSAIB certified. Ranks well for Edinburgh terms but invisible elsewhere in Scotland. Keen on Glasgow expansion.',
-     current_date - 1, current_date - 70),
-    ('Severn Plumbing & Heating', 'Plumbing & Heating', 'CDF', 'severnplumbing.co.uk', 'paused',
-     'Paused - owner recovering from an operation. Follow up in the new year.',
-     null, current_date - 110),
-    ('Kent Commercial Glazing', 'Glazing', 'KEN', 'kentcommercialglazing.co.uk', 'active',
-     'Shopfronts and curtain walling. Two sites in Maidstone and Ashford. Interested in a monthly visibility report they can show their board.',
-     current_date + 21, current_date - 30)
-  ) as v(business_name, industry, location_code, website_domain, status, brief, next_email_due, date_added)
+    ('Pennine Commercial Electrical', 'Electrical Contractors', 'UK', 'penninecommercial.co.uk', 'lead', current_date - 120),
+    ('Midland Fire Protection Ltd', 'Fire Safety', 'UK', 'midlandfireprotection.co.uk', 'lead', current_date - 95),
+    ('Harbourside Office Interiors', 'Office Fit-out', 'UK', 'harboursideinteriors.co.uk', 'lead', current_date - 80),
+    ('Clyde Industrial Coatings', 'Industrial Coatings', 'UK', 'clydecoatings.co.uk', 'lead', current_date - 60),
+    ('Thames Valley Pest Control', 'Pest Control', 'UK', 'thamesvalleypest.co.uk', 'lead', current_date - 45),
+    ('Yorkshire Waste Solutions', 'Waste Management', 'UK', 'yorkshirewaste.co.uk', 'client', current_date - 150),
+    ('Castle Security Systems', 'Security Systems', 'UK', 'castlesecurity.co.uk', 'lead', current_date - 70),
+    ('Severn Plumbing & Heating', 'Plumbing & Heating', 'UK', 'severnplumbing.co.uk', 'lead', current_date - 110),
+    ('Kent Commercial Glazing', 'Glazing', 'UK', 'kentcommercialglazing.co.uk', 'lead', current_date - 30)
+  ) as v(business_name, industry, location_code, website_domain, status, date_added)
   where not exists (select 1 from public.leads l where l.business_name = v.business_name)
   returning id, business_name
 ),

@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 
 const TILES = [
   { key: "visible", label: "Visible", range: "Top 20", className: "text-visible", chip: "bg-visible-soft text-visible" },
-  { key: "partly", label: "Partly visible", range: "21-50", className: "text-partly", chip: "bg-partly-soft text-partly" },
-  { key: "invisible", label: "Invisible", range: "51+", className: "text-invisible", chip: "bg-invisible-soft text-invisible" },
+  { key: "partly", label: "Partly visible", range: "21-100", className: "text-partly", chip: "bg-partly-soft text-partly" },
+  { key: "invisible", label: "Invisible", range: "Not Ranked", className: "text-invisible", chip: "bg-invisible-soft text-invisible" },
 ] as const;
 
 const POINT_STYLE: Record<TalkingPointKind, { icon: typeof TrendingUp; className: string; textClassName: string; label: string }> = {
@@ -26,7 +26,7 @@ export function VisibilitySummaryCard({ rows, months }: { rows: GridRow[]; month
     <Card
       title="Search visibility"
       icon={<Eye />}
-      description={summary.latest ? `${summary.total} buyer phrases, ${formatMonthHeader(summary.latest)}` : "No rankings pulled yet"}
+      description={summary.latest ? `${summary.total} key phrases, ${formatMonthHeader(summary.latest)}` : "No rankings yet"}
       actions={
         previous && summary.latest ? (
           <div className="flex items-center gap-3 text-[13px]">
@@ -56,7 +56,7 @@ export function VisibilitySummaryCard({ rows, months }: { rows: GridRow[]; month
         })}
       </div>
       <VisibilityBar counts={summary.counts} className="mt-4 h-2" />
-      {summary.counts.noData > 0 ? <p className="mt-2 text-xs text-slate-500">{summary.counts.noData} phrase(s) have no data this month - pull again to fill them.</p> : null}
+      {summary.latest && summary.counts.noData > 0 ? <p className="mt-2 text-xs text-slate-500">{summary.counts.noData} phrase(s) have no result for {formatMonthHeader(summary.latest)}.</p> : null}
 
       {points.length > 0 ? (
         <div className="mt-5 border-t border-slate-200 pt-4">

@@ -1,6 +1,6 @@
 import type { BuyerGroupInput, PhraseInput, RankingInput } from "@lvt/shared";
 
-export type LeadStatus = "active" | "paused" | "converted";
+export type LeadStatus = "lead" | "client";
 
 export const MAX_CONTACTS = 5;
 
@@ -17,9 +17,7 @@ export interface Lead {
   location_code: string | null;
   website_domain: string | null;
   status: LeadStatus;
-  brief: string;
   date_added: string;
-  next_email_due: string | null;
   last_ranking_pull: string | null;
 }
 
@@ -48,4 +46,6 @@ export interface PullRun {
   finished_at: string | null;
 }
 
-export const STATUS_LABEL: Record<LeadStatus, string> = { active: "Active", paused: "Paused", converted: "Converted" };
+export const STATUS_LABEL: Record<LeadStatus, string> = { lead: "Lead", client: "Client" };
+
+export const STATUSES: LeadStatus[] = ["lead", "client"];

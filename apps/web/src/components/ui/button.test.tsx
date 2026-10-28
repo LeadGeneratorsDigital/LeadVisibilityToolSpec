@@ -25,7 +25,7 @@ describe("Button loading", () => {
   it("is idle by default: enabled, not busy, no spinner", () => {
     const button = render(
       <Button>
-        <RefreshCw /> Pull rankings
+        <RefreshCw /> Update rankings
       </Button>,
     );
     expect(button).toMatchObject({ disabled: false, busy: false, spinsLeadingIcon: false, svgCount: 1, addedSpinner: false });

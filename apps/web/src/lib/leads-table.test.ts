@@ -1,19 +1,20 @@
+import { INTERRUPTED_RUN_ERROR } from "@lvt/shared";
 import { describe, expect, it } from "vitest";
 import type { LeadRow } from "./leads-table";
 import { countByStatus, filterByStatus, filterLeads, isEmail, joinEmails, latestRunByLead, sortLeads, withLocationLabels } from "./leads-table";
 import type { Lead, PullRun } from "./types";
 
 describe("status filter", () => {
-  const rows = [{ status: "active" as const }, { status: "paused" as const }, { status: "active" as const }];
+  const rows = [{ status: "lead" as const }, { status: "client" as const }, { status: "lead" as const }];
 
   it("'all' keeps every row; a status keeps only matching rows", () => {
     expect(filterByStatus(rows, "all")).toHaveLength(3);
-    expect(filterByStatus(rows, "active")).toEqual([rows[0], rows[2]]);
-    expect(filterByStatus(rows, "converted")).toEqual([]);
+    expect(filterByStatus(rows, "lead")).toEqual([rows[0], rows[2]]);
+    expect(filterByStatus([rows[0]!], "client")).toEqual([]);
   });
 
   it("counts each status plus the total", () => {
-    expect(countByStatus(rows)).toEqual({ all: 3, active: 2, paused: 1, converted: 0 });
+    expect(countByStatus(rows)).toEqual({ all: 3, lead: 2, client: 1 });
   });
 });
 
@@ -24,10 +25,8 @@ function lead(overrides: Partial<Lead>): Lead {
     industry: null,
     location_code: null,
     website_domain: null,
-    status: "active",
-    brief: "",
+    status: "lead",
     date_added: "2026-01-01",
-    next_email_due: null,
     last_ranking_pull: null,
     ...overrides,
   };
@@ -35,13 +34,13 @@ function lead(overrides: Partial<Lead>): Lead {
 
 const rows: LeadRow[] = withLocationLabels(
   [
-    lead({ business_name: "beta Roofing", next_email_due: "2026-10-20", location_code: "LON", status: "paused" }),
-    lead({ business_name: "Alpha Clean", next_email_due: null, location_code: "UK", status: "converted" }),
-    lead({ business_name: "Gamma Scaffolding", next_email_due: "2026-10-09", location_code: null, status: "active" }),
+    lead({ business_name: "beta Roofing", last_ranking_pull: "2026-10-20T09:00:00Z", location_code: "ZA", status: "lead" }),
+    lead({ business_name: "Alpha Clean", last_ranking_pull: null, location_code: "UK", status: "client" }),
+    lead({ business_name: "Gamma Scaffolding", last_ranking_pull: "2026-10-09T09:00:00Z", location_code: null, status: "lead" }),
   ],
   [
-    { code: "LON", label: "London", data4seo_location_code: 1 },
-    { code: "UK", label: "United Kingdom", data4seo_location_code: 2 },
+    { code: "ZA", label: "South Africa", data4seo_location_code: 2710 },
+    { code: "UK", label: "United Kingdom", data4seo_location_code: 2826 },
   ],
 );
 
@@ -54,8 +53,8 @@ describe("sortLeads", () => {
   });
 
   it("keeps empty dates last in both directions", () => {
-    expect(names(sortLeads(rows, "next_email_due", "asc"))).toEqual(["Gamma Scaffolding", "beta Roofing", "Alpha Clean"]);
-    expect(names(sortLeads(rows, "next_email_due", "desc"))).toEqual(["beta Roofing", "Gamma Scaffolding", "Alpha Clean"]);
+    expect(names(sortLeads(rows, "last_ranking_pull", "asc"))).toEqual(["Gamma Scaffolding", "beta Roofing", "Alpha Clean"]);
+    expect(names(sortLeads(rows, "last_ranking_pull", "desc"))).toEqual(["beta Roofing", "Gamma Scaffolding", "Alpha Clean"]);
   });
 
   it("sorts location by label, not code", () => {
@@ -63,7 +62,7 @@ describe("sortLeads", () => {
   });
 
   it("sorts status by its display label", () => {
-    expect(names(sortLeads(rows, "status", "asc"))).toEqual(["Gamma Scaffolding", "Alpha Clean", "beta Roofing"]);
+    expect(names(sortLeads(rows, "status", "asc"))).toEqual(["Alpha Clean", "beta Roofing", "Gamma Scaffolding"]);
   });
 
   it("does not mutate the input", () => {
@@ -76,7 +75,7 @@ describe("sortLeads", () => {
 describe("filterLeads", () => {
   it("matches a case-insensitive substring of the name only", () => {
     expect(names(filterLeads(rows, "  ROOF "))).toEqual(["beta Roofing"]);
-    expect(filterLeads(rows, "London")).toEqual([]);
+    expect(filterLeads(rows, "Africa")).toEqual([]);
   });
 
   it("blank query returns everything", () => {
@@ -114,11 +113,11 @@ describe("latestRunByLead", () => {
     expect(latest.get("B")!.status).toBe("succeeded");
   });
 
-  it("shows a run still 'running' long after it started as interrupted, so the pull buttons unlock", () => {
+  it("shows a run still 'running' long after it started as interrupted, so the Update rankings button unlocks", () => {
     const started = "2026-10-08T10:00:00Z";
     const at = (minutes: number) => new Date(Date.parse(started) + minutes * 60_000);
     expect(latestRunByLead([run("A", started, "running")], at(59)).get("A")!.status).toBe("running");
-    expect(latestRunByLead([run("A", started, "running")], at(61)).get("A")).toMatchObject({ status: "failed", error: "Pull was interrupted - pull again" });
+    expect(latestRunByLead([run("A", started, "running")], at(61)).get("A")).toMatchObject({ status: "failed", error: INTERRUPTED_RUN_ERROR });
   });
 });
 
@@ -133,7 +132,7 @@ describe("isEmail", () => {
 });
 
 describe("joinEmails", () => {
-  it("comma-separates, trims, and drops blanks and case-insensitive repeats", () => {
-    expect(joinEmails([" a@x.com", "", "B@x.com", "A@X.com "])).toBe("a@x.com, B@x.com");
+  it("semicolon-separates for Outlook, trims, and drops blanks and case-insensitive repeats", () => {
+    expect(joinEmails([" a@x.com", "", "B@x.com", "A@X.com "])).toBe("a@x.com; B@x.com");
   });
 });

@@ -33,8 +33,11 @@ export function Select({
   placeholder,
   emptyLabel,
   className,
+  ariaLabel,
 }: {
   id?: string;
+  /** Accessible name when no <label> points at `id`. */
+  ariaLabel?: string;
   value: string | null;
   onChange: (value: string | null) => void;
   options: SelectOption[];
@@ -46,6 +49,7 @@ export function Select({
     <SelectPrimitive.Root value={toRadixValue(value, Boolean(emptyLabel))} onValueChange={(next) => onChange(fromRadixValue(next))}>
       <SelectPrimitive.Trigger
         id={id}
+        aria-label={ariaLabel}
         className={cn(field, "flex h-[38px] items-center justify-between gap-2 text-left data-[placeholder]:text-slate-400 data-[state=open]:border-brand-700 data-[state=open]:bg-white", className)}
       >
         <span className="truncate">
