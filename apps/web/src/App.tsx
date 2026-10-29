@@ -107,7 +107,7 @@ export function App() {
           <span>
             <span className="font-display text-sm font-semibold text-slate-800">LeadGenerators Digital</span> - Lead Visibility Tool
           </span>
-          <span className="tabular-nums text-[11px]">Rankings: Google UK, desktop. Visible = top 20.</span>
+          <span className="tabular-nums text-[11px]">Rankings: Google in each lead's country, desktop. Visible = top 20.</span>
         </div>
       </footer>
     </div>

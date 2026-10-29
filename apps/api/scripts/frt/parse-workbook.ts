@@ -28,7 +28,12 @@ export interface FrtLead {
   location_code: FrtLocation;
   contacts: Array<{ name: string; email: string }>;
   groups: FrtGroup[];
-  /** Latest month with a ranking, or null when the tab has none. */
+  /**
+   * First and latest month with a ranking, or null when the tab has none. The workbook keeps no
+   * reliable "date added" (its All Clients dates are re-registration dates, some read day/month
+   * swapped), so the first ranked month stands in for when tracking began.
+   */
+  first_month: MonthKey | null;
   latest_month: MonthKey | null;
   warnings: string[];
 }
@@ -212,8 +217,8 @@ function parseSheet(ws: Worksheet): FrtLead | { reason: string } {
   for (const [text, count] of seen) if (count > 1) warnings.push(`Phrase "${text}" is listed ${count} times`);
   if (seen.size === 0) warnings.push("No key phrases");
 
-  const latest = groups.flatMap((g) => g.phrases.flatMap((p) => p.rankings.map((r) => r.month))).sort().at(-1) ?? null;
-  return { sheet: ws.name, business_name: business, website_domain: website, location_code: location, contacts, groups, latest_month: latest, warnings };
+  const ranked = groups.flatMap((g) => g.phrases.flatMap((p) => p.rankings.map((r) => r.month))).sort();
+  return { sheet: ws.name, business_name: business, website_domain: website, location_code: location, contacts, groups, first_month: ranked[0] ?? null, latest_month: ranked.at(-1) ?? null, warnings };
 }
 
 export function parseWorkbook(workbook: Workbook): FrtPlan {

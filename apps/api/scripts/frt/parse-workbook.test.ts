@@ -197,7 +197,7 @@ describe("parseWorkbook - rankings", () => {
       { text: "a", rankings: [{ month: "2026-06-01", position: 49 }, { month: "2026-08-01", position: 101 }] },
       { text: "b", rankings: [{ month: "2026-06-01", position: 101 }, { month: "2026-07-01", position: 12 }] },
     ]);
-    expect(lead.latest_month).toBe("2026-08-01");
+    expect([lead.first_month, lead.latest_month]).toEqual(["2026-06-01", "2026-08-01"]);
   });
 
   it("warns about a value that is not a ranking and a ranking under no month heading", () => {
@@ -216,7 +216,8 @@ describe("parseWorkbook - rankings", () => {
   });
 
   it("has no latest month when nothing was ranked", () => {
-    expect(parseOne({ lines: ["a"] }).latest_month).toBeNull();
+    const lead = parseOne({ lines: ["a"] });
+    expect([lead.first_month, lead.latest_month]).toEqual([null, null]);
   });
 });
 

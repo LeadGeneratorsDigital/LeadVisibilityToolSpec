@@ -165,6 +165,9 @@ pnpm import-frt "/path/to/FRT Management Dashboard.xlsx" --apply --target <proje
 - A stacked ALL-CAPS section heading is joined onto each heading under it ("SECTION — Heading"),
   because the app has one level of headings.
 - Positions above 100, "Not Ranked" and "Not in the Top 100" are all stored as Not Ranked.
+- An imported lead's "Date added" is the 1st of its first month with rankings, which is when
+  tracking began. The workbook's own dates (All Clients) are re-registration dates, some read with
+  day and month swapped. A lead with no rankings gets the import date.
 - An imported lead's "Last ranking update" is the 1st of its latest month with data.
 - Every lead is imported as status Lead. Set clients on their lead page.
 

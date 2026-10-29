@@ -2,7 +2,8 @@ import type { FrtLead } from "./parse-workbook";
 
 /** The inserts the FRT import makes; each throws on a failed write. */
 export interface FrtStore {
-  insertLead(row: { business_name: string; website_domain: string | null; location_code: string; status: "lead"; last_ranking_pull: string | null }): Promise<string>;
+  /** `date_added` left out lets the database default it to today. */
+  insertLead(row: { business_name: string; website_domain: string | null; location_code: string; status: "lead"; last_ranking_pull: string | null; date_added?: string }): Promise<string>;
   insertContacts(rows: Array<{ lead_id: string; name: string; email: string; sort_order: number }>): Promise<void>;
   insertHeading(row: { lead_id: string; name: string; sort_order: number }): Promise<string>;
   insertPhrases(rows: Array<{ lead_id: string; buyer_group_id: string | null; phrase_text: string; sort_order: number }>): Promise<Array<{ id: string; sort_order: number }>>;
@@ -29,7 +30,14 @@ export interface LeadResult {
 export async function writeLead(store: FrtStore, lead: FrtLead): Promise<void> {
   // Imported history has no real check time; the 1st of its latest month keeps "Last ranking update" sortable.
   const lastPull = lead.latest_month ? `${lead.latest_month}T12:00:00Z` : null;
-  const id = await store.insertLead({ business_name: lead.business_name, website_domain: lead.website_domain, location_code: lead.location_code, status: "lead", last_ranking_pull: lastPull });
+  const id = await store.insertLead({
+    business_name: lead.business_name,
+    website_domain: lead.website_domain,
+    location_code: lead.location_code,
+    status: "lead",
+    last_ranking_pull: lastPull,
+    ...(lead.first_month ? { date_added: lead.first_month } : {}),
+  });
   try {
     if (lead.contacts.length > 0) await store.insertContacts(lead.contacts.map((c, i) => ({ lead_id: id, name: c.name, email: c.email, sort_order: i + 1 })));
     let order = 0;

@@ -6,7 +6,7 @@ type Step = "insertLead" | "insertContacts" | "insertHeading" | "insertPhrases" 
 
 /** In-memory store; `fail` names steps that throw, optionally only for one business name or on the nth call. */
 class MemoryStore implements FrtStore {
-  leads = new Map<string, { business_name: string; last_ranking_pull: string | null }>();
+  leads = new Map<string, { business_name: string; last_ranking_pull: string | null; date_added?: string }>();
   contacts: Array<{ lead_id: string; name: string; email: string; sort_order: number }> = [];
   headings: Array<{ id: string; lead_id: string; name: string; sort_order: number }> = [];
   phrases: Array<{ id: string; lead_id: string; buyer_group_id: string | null; phrase_text: string; sort_order: number }> = [];
@@ -24,7 +24,7 @@ class MemoryStore implements FrtStore {
     this.current = row.business_name;
     this.step("insertLead");
     const id = `lead-${++this.next}`;
-    this.leads.set(id, { business_name: row.business_name, last_ranking_pull: row.last_ranking_pull });
+    this.leads.set(id, { business_name: row.business_name, last_ranking_pull: row.last_ranking_pull, ...("date_added" in row ? { date_added: row.date_added } : {}) });
     return id;
   }
   async insertContacts(rows: Parameters<FrtStore["insertContacts"]>[0]) {
@@ -81,6 +81,7 @@ function lead(name: string, overrides: Partial<FrtLead> = {}): FrtLead {
         ],
       },
     ],
+    first_month: "2026-08-01",
     latest_month: "2026-09-01",
     warnings: [],
     ...overrides,
@@ -93,7 +94,7 @@ describe("writeLead", () => {
   it("writes the lead, contacts, headings, phrases in order and each ranking on its own phrase", async () => {
     const store = new MemoryStore({}, true);
     await writeLead(store, lead("Acme"));
-    expect([...store.leads.values()]).toEqual([{ business_name: "Acme", last_ranking_pull: "2026-09-01T12:00:00Z" }]);
+    expect([...store.leads.values()]).toEqual([{ business_name: "Acme", last_ranking_pull: "2026-09-01T12:00:00Z", date_added: "2026-08-01" }]);
     expect(store.contacts).toEqual([{ lead_id: "lead-1", name: "Ann", email: "ann@lead.co.uk", sort_order: 1 }]);
     expect(store.headings.map((h) => [h.name, h.sort_order])).toEqual([["Heading", 2]]);
     expect(store.phrases.map((p) => [p.phrase_text, p.buyer_group_id, p.sort_order])).toEqual([
@@ -109,9 +110,9 @@ describe("writeLead", () => {
     ]);
   });
 
-  it("leaves Last ranking update empty for a lead with no rankings, and skips contacts when there are none", async () => {
+  it("leaves Last ranking update empty and Date added to the database for a lead with no rankings, and skips contacts when there are none", async () => {
     const store = new MemoryStore();
-    await writeLead(store, lead("Bare", { contacts: [], groups: [], latest_month: null }));
+    await writeLead(store, lead("Bare", { contacts: [], groups: [], first_month: null, latest_month: null }));
     expect([...store.leads.values()]).toEqual([{ business_name: "Bare", last_ranking_pull: null }]);
     expect(store.calls).toEqual(["insertLead"]);
   });

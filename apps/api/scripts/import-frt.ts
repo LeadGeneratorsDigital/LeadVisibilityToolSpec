@@ -80,6 +80,7 @@ const report = () => ({
     headings: l.groups.filter((g) => g.name !== null).map((g) => g.name),
     phrases: l.groups.reduce((m, g) => m + g.phrases.length, 0),
     rankings: l.groups.reduce((m, g) => m + g.phrases.reduce((k, p) => k + p.rankings.length, 0), 0),
+    first_month: l.first_month,
     latest_month: l.latest_month,
     warnings: l.warnings,
   })),
