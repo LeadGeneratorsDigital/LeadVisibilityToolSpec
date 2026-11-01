@@ -56,9 +56,9 @@ export interface PullRepo {
   failInterruptedRuns(leadId?: string): Promise<void>;
   createRun(leadId: string, phrasesTotal: number, failure?: string): Promise<string>;
   updateRun(runId: string, patch: RunPatch): Promise<void>;
-  /** Overwrites any earlier value for the month. */
+  /** Overwrites any earlier value for the month. A phrase deleted since the update began is skipped, not an error. */
   saveRanking(phraseId: string, month: MonthKey, position: number, check: RankingCheck): Promise<void>;
-  /** Writes NULL only when the month has no row yet - an error never erases a real position. */
+  /** Writes NULL only when the month has no row yet - an error never erases a real position. Skips a deleted phrase. */
   saveBlankIfMissing(phraseId: string, month: MonthKey): Promise<void>;
   markLeadPulled(leadId: string, at: Date): Promise<void>;
 }
@@ -79,7 +79,7 @@ export interface PullDeps {
   sleep?: (ms: number) => Promise<void>;
   /** How old a saved check may be and still be reused instead of paying for a new one. */
   snapshotMaxAgeMs?: number;
-  /** Reports saved-check failures that the pull works around; defaults to console.warn. */
+  /** Reports saved-check failures the pull works around and every phrase left blank; defaults to console.warn. */
   warn?: (message: string) => void;
 }
 
@@ -247,11 +247,12 @@ function rankFor(resolution: Resolution, domain: string): { outcome: RankOutcome
 async function runPull(deps: PullDeps, job: PullJob): Promise<void> {
   const { repo, limit } = deps;
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
-  const total = job.skipped + job.pending.length;
+  const warn = deps.warn ?? console.warn;
   let done = job.skipped;
   let failed = 0;
   let ranked = 0;
   let fatal: FatalPullError | null = null;
+  let lastFailure: string | null = null;
 
   // Counter writes are chained so a slower earlier write never lands after a newer one.
   let progress = Promise.resolve();
@@ -281,6 +282,9 @@ async function runPull(deps: PullDeps, job: PullJob): Promise<void> {
       job.batch.failure = fatal.message;
       return;
     } else {
+      // Without this a blank cell gives no clue why; the run keeps the latest reason for the app.
+      lastFailure = `DataForSEO ${outcome.statusCode}: ${outcome.message}`;
+      warn(`Left blank: "${phrase.phrase_text}" (lead ${job.leadId}, location ${job.locationCode}) - ${lastFailure}`);
       await repo.saveBlankIfMissing(phrase.id, job.month);
       failed++;
     }
@@ -294,11 +298,12 @@ async function runPull(deps: PullDeps, job: PullJob): Promise<void> {
   await progress;
 
   const ownFatal = (fatal as FatalPullError | null)?.message;
-  const error = ownFatal ?? crash ?? (ranked === 0 && job.skipped === 0 ? "Every phrase failed - try updating again" : null);
+  const failedRun = ownFatal ?? crash ?? (ranked === 0 && job.skipped === 0 ? "Every phrase failed - try updating again" : null);
+  const error = failedRun ?? (lastFailure ? `Last blank: ${lastFailure}` : null);
   const finish = async () => {
     if (ranked > 0) await repo.markLeadPulled(job.leadId, job.now());
     await repo.updateRun(job.runId, {
-      status: error ? "failed" : "succeeded",
+      status: failedRun ? "failed" : "succeeded",
       phrases_done: done,
       phrases_failed: failed,
       error,

@@ -10,7 +10,7 @@ export function PullStatus({ run, showSuccess = false }: { run: PullRun | undefi
       <Badge tone="blue">
         <Loader2 className="animate-spin" aria-hidden />
         <span>
-          Pulling {run.phrases_done}/{run.phrases_total}
+          Updating {run.phrases_done}/{run.phrases_total}
         </span>
       </Badge>
     );
@@ -25,7 +25,7 @@ export function PullStatus({ run, showSuccess = false }: { run: PullRun | undefi
   }
   if (run.phrases_failed > 0) {
     return (
-      <Badge tone="amber" title="Some phrases errored and were left blank. Update again to fill them.">
+      <Badge tone="amber" title={`Some phrases could not be checked and were left blank. Update again to fill them.${run.error ? ` ${run.error}` : ""}`}>
         <AlertTriangle aria-hidden />
         <span>{run.phrases_failed} blank - update again</span>
       </Badge>

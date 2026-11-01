@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Copy, Mail, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { ClipboardList, Copy, Mail, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { field, Input } from "@/components/ui/input";
 import { copyText } from "@/lib/clipboard";
+import { mergePastedContacts, planContactPaste } from "@/lib/contact-paste";
 import { data, MAX_CONTACTS } from "@/lib/data";
 import { initials } from "@/lib/insights";
 import { isEmail, joinEmails } from "@/lib/leads-table";
@@ -27,6 +28,8 @@ export function ContactsCard({ leadId, contacts }: { leadId: string; contacts: C
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [people, setPeople] = useState<Contact[]>(contacts);
+  const [pasting, setPasting] = useState(false);
+  const [pasted, setPasted] = useState("");
 
   const save = useMutation({
     mutationFn: () => data.saveContacts(leadId, people.filter((p) => p.name.trim() || p.email.trim())),
@@ -40,7 +43,27 @@ export function ContactsCard({ leadId, contacts }: { leadId: string; contacts: C
 
   const startEditing = () => {
     setPeople(contacts.length ? contacts : [emptyContact()]);
+    setPasting(false);
+    setPasted("");
     setEditing(true);
+  };
+
+  /** Adds the pasted people to the form (filling empty rows first); they are saved with "Save contacts". */
+  const addPasted = () => {
+    const plan = planContactPaste(pasted);
+    const { form, added, notAdded, duplicates } = mergePastedContacts(people, plan.contacts, MAX_CONTACTS, emptyContact);
+    setPeople(form);
+    const notes = [
+      notAdded ? `${notAdded} not added: a lead can have at most ${MAX_CONTACTS} contacts` : null,
+      duplicates ? `${duplicates} skipped: email already in the list` : null,
+      plan.missingEmail.length ? `line${plan.missingEmail.length === 1 ? "" : "s"} ${plan.missingEmail.join(", ")} had no email` : null,
+    ].filter(Boolean);
+    if (added) toast.success(`Added ${added} contact${added === 1 ? "" : "s"} to the list - check them, then Save contacts`, notes.length ? { description: notes.join("; ") } : undefined);
+    else toast.error(notes.join("; ") || "No contacts found in the pasted text");
+    if (added) {
+      setPasted("");
+      setPasting(false);
+    }
   };
 
   const invalidContact = people.find((p) => (p.name.trim() || p.email.trim()) && (!p.name.trim() || !isEmail(p.email)));
@@ -77,9 +100,31 @@ export function ContactsCard({ leadId, contacts }: { leadId: string; contacts: C
               </Button>
             </div>
           ))}
-          <Button size="sm" variant="ghost" disabled={people.length >= MAX_CONTACTS} onClick={() => setPeople((list) => [...list, emptyContact()])}>
-            <Plus /> Add contact
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="ghost" disabled={people.length >= MAX_CONTACTS} onClick={() => setPeople((list) => [...list, emptyContact()])}>
+              <Plus /> Add contact
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setPasting((p) => !p)} aria-expanded={pasting}>
+              <ClipboardList /> {pasting ? "Close paste" : "Paste contacts"}
+            </Button>
+          </div>
+          {pasting ? (
+            <div className="space-y-2 rounded-md border border-slate-200 p-3">
+              <p className="text-xs text-slate-600">One person per line: name, job title and email, separated by commas, or copied straight from a spreadsheet.</p>
+              <textarea
+                aria-label="Paste contacts"
+                className={`${field} min-h-28 w-full py-2 font-mono text-xs leading-5`}
+                placeholder={"Jane Smith, Managing Director, jane@example.co.uk\nTom Brown, tom@example.co.uk"}
+                value={pasted}
+                onChange={(e) => setPasted(e.target.value)}
+              />
+              <div className="flex justify-end">
+                <Button size="sm" variant="secondary" disabled={!pasted.trim()} onClick={addPasted}>
+                  Add to list
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-4">
           {invalidContact ? <span className="mr-auto text-xs text-invisible">Each contact needs a name and a valid email</span> : null}

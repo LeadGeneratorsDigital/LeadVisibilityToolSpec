@@ -2,6 +2,7 @@ import { keywordKey } from "@lvt/shared";
 import type { LeadRankingCell } from "./insights";
 import { supabase } from "./supabase";
 import type { ExistingContact, ImportLead } from "./lead-import";
+import type { PastePlan } from "./phrase-paste";
 import { MAX_CONTACTS, type BuyerGroup, type Contact, type Lead, type LocationCode, type Phrase, type PullRun, type Ranking } from "./types";
 
 function unwrap<T>(result: { data: T | null; error: { message: string } | null }): T {
@@ -42,6 +43,11 @@ export const data = {
 
   async createLead(fields: Partial<Lead> & { business_name: string }): Promise<Lead> {
     return unwrap(await supabase.from("leads").insert(fields).select("*").single());
+  },
+
+  /** Contacts, headings, key phrases, rankings and update history go with it (ON DELETE CASCADE). */
+  async deleteLead(id: string): Promise<void> {
+    unwrap(await supabase.from("leads").delete().eq("id", id).select("id"));
   },
 
   async updateLead(id: string, fields: Partial<Lead>): Promise<Lead> {
@@ -90,6 +96,14 @@ export const data = {
     return selectAll((from, to) => supabase.from("rankings").select("phrase_id, month, position, checked_at").in("phrase_id", phraseIds).order("id").range(from, to));
   },
 
+  /** Tracked key phrases per lead, for the bulk update confirm. */
+  async phraseCountsByLead(): Promise<Map<string, number>> {
+    const rows = (await selectAll((from, to) => supabase.from("phrases").select("lead_id").is("archived_at", null).order("id").range(from, to))) as Array<{ lead_id: string }>;
+    const counts = new Map<string, number>();
+    for (const r of rows) counts.set(r.lead_id, (counts.get(r.lead_id) ?? 0) + 1);
+    return counts;
+  },
+
   /** Ranking cells for every lead since `sinceMonth`, tagged with the owning lead, for dashboard summaries. */
   async leadRankingCells(sinceMonth: string): Promise<LeadRankingCell[]> {
     const rows = (await selectAll((from, to) =>
@@ -135,9 +149,38 @@ export const data = {
     unwrap(await supabase.from("phrases").update({ buyer_group_id: buyerGroupId, sort_order: sortOrder }).eq("id", id).select("id"));
   },
 
-  /** Stops tracking without deleting, so the phrase's ranking history is never lost. */
-  async archivePhrase(id: string): Promise<void> {
-    unwrap(await supabase.from("phrases").update({ archived_at: new Date().toISOString() }).eq("id", id).select("id"));
+  /**
+   * Saves a pasted list: its new headings after the existing ones, then every phrase it adds at the
+   * end of its heading. Two inserts, so a failure between them can leave new headings empty.
+   */
+  async addPhraseList(leadId: string, plan: PastePlan, groups: BuyerGroup[], phrases: Phrase[]): Promise<number> {
+    const groupId = new Map(groups.map((g) => [g.name, g.id]));
+    if (plan.newHeadings.length > 0) {
+      const start = groups.reduce((max, g) => Math.max(max, g.sort_order), 0);
+      const created = unwrap(
+        await supabase
+          .from("buyer_groups")
+          .insert(plan.newHeadings.map((name, i) => ({ lead_id: leadId, name, sort_order: start + i + 1 })))
+          .select("id, name"),
+      ) as Array<{ id: string; name: string }>;
+      for (const g of created) groupId.set(g.name, g.id);
+    }
+    const nextOrder = new Map<string | null, number>();
+    for (const p of phrases) nextOrder.set(p.buyer_group_id, Math.max(nextOrder.get(p.buyer_group_id) ?? 0, p.sort_order));
+    const rows = plan.lines.flatMap((line) => {
+      if (line.kind !== "phrase" || line.skip) return [];
+      const id = line.heading === null ? null : groupId.get(line.heading)!;
+      const order = (nextOrder.get(id) ?? 0) + 1;
+      nextOrder.set(id, order);
+      return [{ lead_id: leadId, buyer_group_id: id, phrase_text: line.text, sort_order: order }];
+    });
+    if (rows.length > 0) unwrap(await supabase.from("phrases").insert(rows).select("id"));
+    return rows.length;
+  },
+
+  /** Deletes the phrase and its ranking history (ON DELETE CASCADE). */
+  async deletePhrase(id: string): Promise<void> {
+    unwrap(await supabase.from("phrases").delete().eq("id", id).select("id"));
   },
 
   async swapSortOrder(table: "buyer_groups" | "phrases", a: { id: string; sort_order: number }, b: { id: string; sort_order: number }): Promise<void> {

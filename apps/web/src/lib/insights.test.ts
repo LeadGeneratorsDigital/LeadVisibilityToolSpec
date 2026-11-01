@@ -165,7 +165,7 @@ describe("talkingPoints", () => {
 
 describe("dashboardStats", () => {
   const counts = (visible: number, partly: number, invisible: number, noData = 0) => ({ counts: { visible, partly, invisible, noData } });
-  const lead = (id: string, status: "lead" | "client", last_ranking_pull: string | null = null) => ({ id, status, last_ranking_pull });
+  const lead = (id: string, status: "lead" | "client", last_ranking_pull: string | null = null) => ({ id, business_name: `Lead ${id}`, status, last_ranking_pull });
 
   it("counts leads and clients, shares visibility across both, and finds the newest pull", () => {
     const leads = [lead("a", "lead", "2026-10-05T09:00:00Z"), lead("b", "lead"), lead("c", "client", "2026-10-08T09:00:00Z"), lead("d", "lead", "2026-10-07T09:00:00Z")];
@@ -173,11 +173,11 @@ describe("dashboardStats", () => {
       ["a", counts(3, 1, 0, 5)],
       ["c", counts(1, 1, 2)],
     ]);
-    expect(dashboardStats(leads, visibility)).toEqual({ leadCount: 3, clientCount: 1, visibleShare: 50, lastPull: "2026-10-08T09:00:00Z" });
+    expect(dashboardStats(leads, visibility)).toEqual({ leadCount: 3, clientCount: 1, visibleShare: 50, lastPull: "2026-10-08T09:00:00Z", lastPullLead: "Lead c" });
   });
 
   it("has no visible share or last pull when nothing has been ranked", () => {
-    expect(dashboardStats([lead("a", "lead")], new Map([["a", counts(0, 0, 0, 4)]]))).toEqual({ leadCount: 1, clientCount: 0, visibleShare: null, lastPull: null });
+    expect(dashboardStats([lead("a", "lead")], new Map([["a", counts(0, 0, 0, 4)]]))).toEqual({ leadCount: 1, clientCount: 0, visibleShare: null, lastPull: null, lastPullLead: null });
   });
 });
 

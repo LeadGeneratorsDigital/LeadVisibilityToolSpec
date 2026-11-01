@@ -8,6 +8,7 @@ const fake = vi.hoisted(() => {
     calls: [] as string[],
     filters: [] as unknown[][],
     updates: [] as unknown[],
+    inserts: [] as Array<[string, unknown]>,
     rpcArgs: undefined as unknown,
     rpcResult: { data: null, error: null } as { data: unknown; error: { message: string } | null },
   };
@@ -25,7 +26,7 @@ const fake = vi.hoisted(() => {
       limit: (n: number) => ((q.limit = n), b),
       range: (from: number, to: number) => ((q.from = from), (q.to = to), b),
       delete: () => (state.calls.push(`delete ${table}`), b),
-      insert: () => (state.calls.push(`insert ${table}`), b),
+      insert: (rows: unknown) => (state.calls.push(`insert ${table}`), state.inserts.push([table, rows]), b),
       then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => {
         const rows = state.tables[table] ?? [];
         const end = Math.min(q.to + 1, q.from + q.limit, q.from + MAX_ROWS);
@@ -48,12 +49,14 @@ const fake = vi.hoisted(() => {
 vi.mock("./supabase", () => ({ supabase: fake.supabase }));
 
 const { data } = await import("./data");
+const { planPhrasePaste } = await import("./phrase-paste");
 
 beforeEach(() => {
   fake.state.tables = {};
   fake.state.calls = [];
   fake.state.filters = [];
   fake.state.updates = [];
+  fake.state.inserts = [];
   fake.state.rpcArgs = undefined;
   fake.state.rpcResult = { data: null, error: null };
 });
@@ -94,14 +97,6 @@ describe("archived phrases", () => {
     expect(fake.state.filters).toContainEqual(["rankings", "is", "phrases.archived_at", null]);
   });
 
-  it("removing a phrase archives it and never deletes it", async () => {
-    fake.state.tables.phrases = [{ id: "p1" }];
-    await data.archivePhrase("p1");
-    expect(fake.state.calls).toEqual(["update phrases"]);
-    expect(fake.state.updates[0]).toEqual({ archived_at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) });
-    expect(fake.state.filters).toContainEqual(["phrases", "eq", "id", "p1"]);
-  });
-
   it("re-adding an archived phrase (any case or spacing) restores it into the chosen group", async () => {
     fake.state.tables.phrases = [{ id: "p9", phrase_text: "Scaffolding  Hire" }];
     expect(await data.addPhrase("L1", "g2", "scaffolding hire", 4)).toBe("restored");
@@ -115,6 +110,55 @@ describe("archived phrases", () => {
     fake.state.tables.phrases = [{ id: "p9", phrase_text: "scaffolding hire leeds" }];
     expect(await data.addPhrase("L1", null, "scaffolding hire", 1)).toBe("added");
     expect(fake.state.calls).toEqual(["insert phrases"]);
+  });
+});
+
+describe("deleting", () => {
+  it("deletes a lead by id; its children go by cascade", async () => {
+    await data.deleteLead("L1");
+    expect(fake.state.calls).toEqual(["delete leads"]);
+    expect(fake.state.filters).toContainEqual(["leads", "eq", "id", "L1"]);
+  });
+
+  it("deletes a phrase by id; its rankings go by cascade", async () => {
+    await data.deletePhrase("p1");
+    expect(fake.state.calls).toEqual(["delete phrases"]);
+    expect(fake.state.filters).toContainEqual(["phrases", "eq", "id", "p1"]);
+  });
+});
+
+describe("addPhraseList", () => {
+  const groups = [
+    { id: "g1", lead_id: "L", name: "Existing", sort_order: 4 },
+    { id: "g2", lead_id: "L", name: "Other", sort_order: 1 },
+  ];
+  const phrases = [
+    { id: "p1", lead_id: "L", buyer_group_id: "g1", phrase_text: "a", is_heading: false, sort_order: 7 },
+    { id: "p2", lead_id: "L", buyer_group_id: null, phrase_text: "b", is_heading: false, sort_order: 2 },
+  ];
+
+  it("creates new headings after the existing ones and appends each phrase to the end of its heading", async () => {
+    fake.state.tables.buyer_groups = [{ id: "g-new", name: "Fresh" }];
+    const plan = planPhrasePaste("loose\nExisting:\nunder existing\nFresh:\nunder fresh\nsecond fresh\na", { headings: ["Existing", "Other"], phrases: ["a", "b"] });
+    expect(await data.addPhraseList("L", plan, groups, phrases)).toBe(4);
+    expect(fake.state.inserts).toEqual([
+      ["buyer_groups", [{ lead_id: "L", name: "Fresh", sort_order: 5 }]],
+      [
+        "phrases",
+        [
+          { lead_id: "L", buyer_group_id: null, phrase_text: "loose", sort_order: 3 },
+          { lead_id: "L", buyer_group_id: "g1", phrase_text: "under existing", sort_order: 8 },
+          { lead_id: "L", buyer_group_id: "g-new", phrase_text: "under fresh", sort_order: 1 },
+          { lead_id: "L", buyer_group_id: "g-new", phrase_text: "second fresh", sort_order: 2 },
+        ],
+      ],
+    ]);
+  });
+
+  it("writes nothing when every pasted phrase is already tracked and no heading is new", async () => {
+    const plan = planPhrasePaste("Existing:\na", { headings: ["Existing"], phrases: ["a"] });
+    expect(await data.addPhraseList("L", plan, groups, phrases)).toBe(0);
+    expect(fake.state.calls).toEqual([]);
   });
 });
 

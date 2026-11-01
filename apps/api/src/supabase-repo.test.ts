@@ -24,6 +24,33 @@ function fakeDb(results: Result[]) {
 }
 
 describe("createSupabasePullRepo", () => {
+  it.each(["saveRanking", "saveBlankIfMissing"] as const)("%s skips a phrase deleted mid-update (foreign key violation)", async (method) => {
+    const gone = { data: null, error: { message: 'insert or update on table "rankings" violates foreign key constraint "rankings_phrase_id_fkey"', code: "23503" } };
+    const { db } = fakeDb([gone]);
+    const repo = createSupabasePullRepo(db);
+    const call = method === "saveRanking" ? repo.saveRanking("p", "2026-11-01", 3, { checkedAt: new Date(0), snapshotId: null }) : repo.saveBlankIfMissing("p", "2026-11-01");
+    await expect(call).resolves.toBeUndefined();
+  });
+
+  it("saveRanking still fails when the snapshot it points to is gone (the other foreign key)", async () => {
+    const snapshotGone = { data: null, error: { message: 'insert or update on table "rankings" violates foreign key constraint "rankings_snapshot_id_fkey"', code: "23503" } };
+    const { db } = fakeDb([snapshotGone]);
+    await expect(createSupabasePullRepo(db).saveRanking("p", "2026-11-01", 3, { checkedAt: new Date(0), snapshotId: "s" })).rejects.toThrow("rankings_snapshot_id_fkey");
+  });
+
+  it("saveBlankIfMissing still fails on a different error that happens to name the phrase key", async () => {
+    const other = { data: null, error: { message: 'permission denied while checking "rankings_phrase_id_fkey"', code: "42501" } };
+    const { db } = fakeDb([other]);
+    await expect(createSupabasePullRepo(db).saveBlankIfMissing("p", "2026-11-01")).rejects.toThrow("permission denied");
+  });
+
+  it.each(["saveRanking", "saveBlankIfMissing"] as const)("%s still fails on any other database error", async (method) => {
+    const { db } = fakeDb([{ data: null, error: { message: "permission denied", code: "42501" } }]);
+    const repo = createSupabasePullRepo(db);
+    const call = method === "saveRanking" ? repo.saveRanking("p", "2026-11-01", 3, { checkedAt: new Date(0), snapshotId: null }) : repo.saveBlankIfMissing("p", "2026-11-01");
+    await expect(call).rejects.toThrow("permission denied");
+  });
+
   it("listPhrases leaves out headings and archived phrases", async () => {
     const { db, queries } = fakeDb([{ data: [], error: null }]);
     await createSupabasePullRepo(db).listPhrases("L");

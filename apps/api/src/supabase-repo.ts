@@ -12,6 +12,16 @@ function check<T>(result: { data: T; error: { message: string } | null }, what: 
   return result.data;
 }
 
+/** Postgres foreign_key_violation; rankings also has one on snapshot_id, so the constraint name is checked too. */
+const FOREIGN_KEY_VIOLATION = "23503";
+const PHRASE_FOREIGN_KEY = "rankings_phrase_id_fkey";
+
+/** A ranking for a phrase deleted mid-update has nowhere to go; dropping it beats failing the whole run. */
+function checkRankingWrite(result: { error: { message: string; code?: string } | null }, what: string): void {
+  if (result.error?.code === FOREIGN_KEY_VIOLATION && result.error.message.includes(PHRASE_FOREIGN_KEY)) return;
+  check({ data: null, error: result.error }, what);
+}
+
 function rows<T>(result: { data: T[] | null; error: { message: string } | null }, what: string): T[] {
   return check(result, what) ?? [];
 }
@@ -104,11 +114,11 @@ export function createSupabasePullRepo(db: SupabaseClient): PullRepo {
 
     async saveRanking(phraseId, month, position, { checkedAt, snapshotId }) {
       const row = { phrase_id: phraseId, month, position, checked_at: checkedAt.toISOString(), snapshot_id: snapshotId };
-      check(await db.from("rankings").upsert(row, { onConflict: "phrase_id,month" }), "Save ranking");
+      checkRankingWrite(await db.from("rankings").upsert(row, { onConflict: "phrase_id,month" }), "Save ranking");
     },
 
     async saveBlankIfMissing(phraseId, month) {
-      check(
+      checkRankingWrite(
         await db.from("rankings").upsert({ phrase_id: phraseId, month, position: null }, { onConflict: "phrase_id,month", ignoreDuplicates: true }),
         "Save blank ranking",
       );

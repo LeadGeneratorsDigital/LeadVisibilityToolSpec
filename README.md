@@ -10,11 +10,15 @@ Stage 1 covers:
   Client), with search and sorting on every column.
 - **Lead page.**
   - Details and up to five contacts, with **Copy all emails** (separated by semicolons for Outlook).
+    Contacts can be pasted several at a time (one per line, or rows copied from a spreadsheet).
   - Key phrases grouped under one level of free-text headings; a phrase can be moved under another
     heading with its ranking history.
-  - The monthly ranking table: green for positions 1-20, mustard for 21-100, and red "Not Ranked"
-    outside the top 100.
-  - **Update rankings.** Manual, one prospect at a time.
+  - The monthly ranking table, one column per month checked: the position in green for 1-20,
+    mustard for 21-100, and red "Not Ranked" outside the top 100, on a white background.
+  - **Update rankings.** Manual, from the lead page, or for several leads at once by ticking them
+    on the leads list (that run only checks phrases with no result yet this month).
+  - **Paste a list** of key phrases: a line ending in `:` or written in capitals becomes a heading.
+  - **Delete** a key phrase (with its ranking history) or a whole lead.
   - **Copy as CSV** of the whole ranking table.
 - **CSV import** of leads and contacts.
 - **One-time import of the old FRT workbook** (leads, contacts, headings, phrases and past rankings).

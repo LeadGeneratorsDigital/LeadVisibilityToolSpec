@@ -1,8 +1,8 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { buildRankingCsv, buildRankingGrid, currentMonthKey, historyMonths } from "@lvt/shared";
-import { BarChart3, ExternalLink, FileSpreadsheet, ListTree, MapPin, RefreshCw, Tag } from "lucide-react";
+import { BarChart3, ExternalLink, FileSpreadsheet, ListTree, MapPin, RefreshCw, Tag, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ContactsCard } from "@/components/ContactsCard";
 import { LeadDetailsCard } from "@/components/LeadDetailsCard";
@@ -71,6 +71,25 @@ export function LeadPage() {
   const busy = pull.isPending || running;
 
   const { confirm, dialog: confirmDialog } = useConfirm();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const removeLead = useMutation({
+    mutationFn: () => data.deleteLead(id),
+    onSuccess: () => {
+      toast.success(`${lead.data?.business_name ?? "Lead"} deleted`);
+      void queryClient.invalidateQueries({ queryKey: ["leads"] });
+      navigate("/");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+  const deleteLead = () =>
+    confirm({
+      title: `Delete ${lead.data?.business_name ?? "this lead"}?`,
+      description: "Its contacts, key phrases and all ranking history will be deleted. This cannot be undone.",
+      confirmLabel: "Delete lead",
+      destructive: true,
+      onConfirm: () => removeLead.mutate(),
+    });
   // A second update in the same month replaces that month's results, so it re-checks every phrase;
   // phrases left blank by a failed check can be filled on their own, which costs only those checks.
   const thisMonth = currentMonthKey(new Date());
@@ -169,6 +188,9 @@ export function LeadPage() {
           />
           <Button variant="secondary" onClick={() => void copyAsCsv()} disabled={!hasPhrases || !rankingsReady} title="Copy the full rankings table as CSV, ready to paste into Claude or a spreadsheet">
             <FileSpreadsheet /> Copy as CSV
+          </Button>
+          <Button variant="ghost" onClick={deleteLead} loading={removeLead.isPending} disabled={busy} title="Delete this lead and all its data" className="text-crimson hover:bg-crimson-soft">
+            <Trash2 /> Delete lead
           </Button>
         </div>
       </header>

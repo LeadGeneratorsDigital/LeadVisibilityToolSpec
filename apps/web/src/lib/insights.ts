@@ -157,11 +157,12 @@ export function talkingPoints(rows: GridRow[], months: MonthKey[], limit = 4): T
 
 export interface DashboardLead {
   id: string;
+  business_name: string;
   status: "lead" | "client";
   last_ranking_pull: string | null;
 }
 
-/** Header numbers for the leads dashboard: lead and client counts, top-20 share and the newest pull. */
+/** Header numbers for the leads dashboard: lead and client counts, top-20 share, and which lead was updated last. */
 export function dashboardStats(leads: DashboardLead[], visibility: Map<string, { counts: VisibilityCounts }>) {
   let visible = 0;
   let ranked = 0;
@@ -171,12 +172,13 @@ export function dashboardStats(leads: DashboardLead[], visibility: Map<string, {
     visible += counts.visible;
     ranked += counts.visible + counts.partly + counts.invisible;
   }
-  const lastPull = leads.reduce<string | null>((latest, l) => (l.last_ranking_pull && (!latest || l.last_ranking_pull > latest) ? l.last_ranking_pull : latest), null);
+  const newest = leads.reduce<DashboardLead | null>((best, l) => (l.last_ranking_pull && (!best || l.last_ranking_pull > best.last_ranking_pull!) ? l : best), null);
   return {
     leadCount: leads.filter((l) => l.status === "lead").length,
     clientCount: leads.filter((l) => l.status === "client").length,
     visibleShare: ranked === 0 ? null : Math.round((visible / ranked) * 100),
-    lastPull,
+    lastPull: newest?.last_ranking_pull ?? null,
+    lastPullLead: newest?.business_name ?? null,
   };
 }
 

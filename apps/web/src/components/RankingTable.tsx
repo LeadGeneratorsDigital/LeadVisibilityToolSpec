@@ -5,18 +5,25 @@ import { checkedSuffix } from "@/lib/format";
 import { trendBetween } from "@/lib/insights";
 import { cn } from "@/lib/utils";
 
+// White cells, coloured figures only: the client found coloured backgrounds too busy.
 const CELL_STYLE = {
-  visible: "bg-visible-soft text-visible",
-  partly: "bg-partly-soft text-partly",
-  invisible: "bg-invisible-soft text-invisible",
+  visible: "text-visible",
+  partly: "text-partly",
+  invisible: "text-invisible",
 } as const;
 
-function Cell({ position, previous, latest, checkedAt }: { position: number | null | undefined; previous: number | null | undefined; latest: boolean; checkedAt: string | null | undefined }) {
+function Cell({ position, previous, checkedAt }: { position: number | null | undefined; previous: number | null | undefined; checkedAt: string | null | undefined }) {
   // Not checked that month (the phrase was added later): blank, as agreed with the client.
-  if (position === undefined) return <td className={cn("p-1.5", latest && "bg-panel/70")} aria-label="Not checked" />;
+  if (position === undefined) {
+    return (
+      <td className="border-b border-slate-100 p-1.5" aria-label="Not checked">
+        <div className="h-11" />
+      </td>
+    );
+  }
   if (position === null) {
     return (
-      <td className={cn("p-1.5", latest && "bg-panel/70")} aria-label="No data - the check failed" title={`No data - the check failed${checkedSuffix(checkedAt)}`}>
+      <td className="border-b border-slate-100 p-1.5" aria-label="No data - the check failed" title={`No data - the check failed${checkedSuffix(checkedAt)}`}>
         <div className="flex h-11 items-center justify-center rounded border border-dashed border-slate-300 font-mono text-xs text-slate-400">-</div>
       </td>
     );
@@ -26,8 +33,8 @@ function Cell({ position, previous, latest, checkedAt }: { position: number | nu
   const trend = trendBetween(previous, position);
   const title = `${VISIBILITY_LABEL[visibility]} - ${notRanked ? "not in the top 100" : `position ${position}`}${trend && trend.direction !== "same" ? ` (${trend.direction} ${trend.places})` : ""}${checkedSuffix(checkedAt)}`;
   return (
-    <td className={cn("p-1.5", latest && "bg-panel/70")} title={title}>
-      <div className={cn("relative flex h-11 flex-col items-center justify-center rounded", CELL_STYLE[visibility], latest && "ring-1 ring-current/25")}>
+    <td className="border-b border-slate-100 p-1.5" title={title}>
+      <div className={cn("relative flex h-11 flex-col items-center justify-center", CELL_STYLE[visibility])}>
         {notRanked ? (
           <span className="text-[11px] leading-none font-bold whitespace-nowrap">{NOT_RANKED_LABEL}</span>
         ) : (
@@ -66,22 +73,24 @@ export function RankingTable({ rows, months }: { rows: GridRow[]; months: MonthK
       <table className="w-full border-separate border-spacing-0 text-sm">
         <thead>
           <tr className="eyebrow text-slate-700">
-            <th className="sticky left-0 z-10 min-w-64 border-b-2 border-brand-700 bg-white px-3 py-3 text-left font-semibold">Key phrase</th>
+            <th className="sticky left-0 z-10 min-w-72 border-b-2 border-brand-700 bg-white px-3 py-3 text-left font-semibold">Key phrase</th>
             {months.map((m) => (
-              <th key={m} className={cn("min-w-24 border-b-2 border-brand-700 px-1.5 py-3 text-center font-semibold", m === latestMonth ? "bg-panel text-slate-900" : "bg-white")}>
+              <th key={m} className={cn("w-24 min-w-24 border-b-2 border-brand-700 bg-white px-1.5 py-3 text-center font-semibold whitespace-nowrap", m === latestMonth && "text-slate-900")}>
                 <span className="inline-flex items-center gap-1.5">
                   {formatMonthHeader(m)}
                   {m === latestMonth ? <span className="rounded-sm bg-brand-700 px-1.5 py-px text-[9px] tracking-normal text-white normal-case">Latest</span> : null}
                 </span>
               </th>
             ))}
+            {/* Takes the spare width so a few months sit next to the phrases instead of spreading out. */}
+            <th aria-hidden className="w-full border-b-2 border-brand-700 bg-white" />
           </tr>
         </thead>
         <tbody>
           {rows.map((row) =>
             row.kind === "heading" ? (
               <tr key={row.key}>
-                <td colSpan={months.length + 1} className="bg-brand-900 px-3 py-2 text-[11px] font-semibold tracking-[0.06em] text-white uppercase">
+                <td colSpan={months.length + 2} className="bg-brand-900 px-3 py-2 text-[11px] font-semibold tracking-[0.06em] text-white uppercase">
                   {/* The cell spans every month, so only the label can stay pinned while scrolled right. */}
                   <span className="sticky left-3">
                     {row.label}
@@ -95,8 +104,9 @@ export function RankingTable({ rows, months }: { rows: GridRow[]; months: MonthK
               <tr key={row.key} className="group">
                 <td className="sticky left-0 z-10 border-b border-slate-100 bg-white px-3 py-1.5 font-medium text-slate-800 group-hover:bg-panel">{row.label}</td>
                 {months.map((m, i) => (
-                  <Cell key={m} position={row.positions[m]} previous={i > 0 ? row.positions[months[i - 1]!] : undefined} latest={m === latestMonth} checkedAt={row.checkedAt[m]} />
+                  <Cell key={m} position={row.positions[m]} previous={i > 0 ? row.positions[months[i - 1]!] : undefined} checkedAt={row.checkedAt[m]} />
                 ))}
+                <td aria-hidden className="border-b border-slate-100" />
               </tr>
             ),
           )}

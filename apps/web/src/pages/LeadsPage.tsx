@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, BadgeCheck, Building2, Eye, History, Plus, Search, SearchX, Upload, Users, X } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { ArrowDown, ArrowUp, BadgeCheck, Building2, Eye, History, Plus, RefreshCw, Search, SearchX, Upload, Users, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
 import { AddLeadDialog } from "@/components/AddLeadDialog";
 import { ImportLeadsDialog } from "@/components/ImportLeadsDialog";
@@ -8,10 +9,13 @@ import { PullStatus } from "@/components/PullStatus";
 import { StatusBadge } from "@/components/StatusBadge";
 import { VisibilityBar } from "@/components/VisibilityBar";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Avatar, EmptyState } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { usePullRuns } from "@/hooks/usePullRuns";
+import { api } from "@/lib/api";
+import { bulkTargets, phraseTotal, runBulkUpdate } from "@/lib/bulk-update";
 import { data } from "@/lib/data";
 import { formatLongDate } from "@/lib/format";
 import { dashboardStats, initials, latestVisibilityByLead, relativeTime, visibilitySinceMonth } from "@/lib/insights";
@@ -53,6 +57,9 @@ export function LeadsPage() {
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({ key: "business_name", direction: "asc" });
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const phraseCounts = useQuery({ queryKey: ["phrases", "counts"], queryFn: data.phraseCountsByLead });
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   const now = new Date();
   const labelled = useMemo(() => withLocationLabels(leads.data ?? [], locations.data ?? []), [leads.data, locations.data]);
@@ -60,6 +67,47 @@ export function LeadsPage() {
   const stats = useMemo(() => dashboardStats(labelled, visibility), [labelled, visibility]);
   const statusCounts = useMemo(() => countByStatus(labelled), [labelled]);
   const rows = useMemo(() => sortLeads(filterByStatus(filterLeads(labelled, query), status), sort.key, sort.direction), [labelled, query, status, sort]);
+
+  const shownIds = rows.map((r) => r.id);
+  const allShownSelected = shownIds.length > 0 && shownIds.every((id) => selected.has(id));
+  const toggleOne = (id: string) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleAllShown = () => setSelected(allShownSelected ? new Set() : new Set(shownIds));
+
+  const bulkUpdate = useMutation({
+    mutationFn: (ids: string[]) => runBulkUpdate(ids, (id) => api.pullLead(id)),
+    onSuccess: (result) => {
+      const names = new Map(labelled.map((l) => [l.id, l.business_name]));
+      if (result.started.length) toast.success(`Updating rankings for ${result.started.length} lead${result.started.length === 1 ? "" : "s"}`);
+      if (result.failed.length) toast.error(`${result.failed.length} could not start`, { description: result.failed.map((f) => `${names.get(f.id) ?? f.id}: ${f.reason}`).join("; ") });
+      setSelected(new Set());
+      // Returned so the button keeps spinning until the runs show as running.
+      return runs.refresh();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+  const targets = bulkTargets(rows, selected);
+  const shownSelected = targets.ready.length + targets.skipped.length;
+  const confirmBulkUpdate = () => {
+    const ids = targets.ready;
+    const phrases = phraseTotal(ids, phraseCounts.data ?? new Map());
+    const skippedNote = targets.skipped.length ? ` Skipped, as they have no website or location yet: ${targets.skipped.join(", ")}.` : "";
+    if (ids.length === 0) {
+      toast.error(`None of the selected leads can be updated.${skippedNote}`);
+      return;
+    }
+    confirm({
+      title: `Update rankings for ${ids.length} lead${ids.length === 1 ? "" : "s"}?`,
+      description: `Up to ${phrases} key phrase${phrases === 1 ? "" : "s"} will be checked on Google, each using DataForSEO credit. Phrases that already have a result this month are skipped, so leads updated this month cost nothing extra.${skippedNote}`,
+      confirmLabel: "Update rankings",
+      onConfirm: () => bulkUpdate.mutate(ids),
+    });
+  };
 
   const toggleSort = (key: SortKey) =>
     setSort((current) => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }));
@@ -88,7 +136,7 @@ export function LeadsPage() {
         <Stat label="Leads" icon={<Building2 />} value={stats.leadCount} detail={`of ${labelled.length} in total`} />
         <Stat label="Clients" icon={<BadgeCheck />} value={stats.clientCount} detail={`of ${labelled.length} in total`} />
         <Stat label="Visible phrases" icon={<Eye />} value={stats.visibleShare === null ? "-" : `${stats.visibleShare}%`} detail="in the top 20, latest month per lead" />
-        <Stat label="Last ranking update" icon={<History />} value={relativeTime(stats.lastPull, now)} detail={stats.lastPull ? "across all leads" : "no pulls yet"} />
+        <Stat label="Last ranking update" icon={<History />} value={relativeTime(stats.lastPull, now)} detail={stats.lastPullLead ? `on ${stats.lastPullLead} (the most recent update)` : "no updates yet"} />
       </div>
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -107,6 +155,16 @@ export function LeadsPage() {
               ),
             }))}
           />
+          {shownSelected > 0 ? (
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={confirmBulkUpdate} loading={bulkUpdate.isPending} disabled={phraseCounts.isLoading}>
+                <RefreshCw /> Update rankings ({shownSelected})
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+                Clear selection
+              </Button>
+            </div>
+          ) : null}
           <div className="relative w-full sm:w-72">
             <Search className="pointer-events-none absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
             <Input className="pr-8 pl-9" placeholder="Search by company name" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search leads by company name" />
@@ -122,6 +180,9 @@ export function LeadsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="eyebrow border-y border-b-2 border-slate-200 border-b-brand-700 bg-panel text-left text-slate-700">
+                <th className="w-10 py-3 pl-4">
+                  <input type="checkbox" className="h-4 w-4 accent-brand-700" aria-label="Select all shown leads" checked={allShownSelected} onChange={toggleAllShown} disabled={shownIds.length === 0} />
+                </th>
                 {COLUMNS.map((col) => {
                   const active = col.key !== null && sort.key === col.key;
                   const Icon = sort.direction === "asc" ? ArrowUp : ArrowDown;
@@ -144,7 +205,7 @@ export function LeadsPage() {
               {leads.isLoading
                 ? [0, 1, 2].map((i) => (
                     <tr key={i}>
-                      <td colSpan={COLUMNS.length} className="px-4 py-4">
+                      <td colSpan={COLUMNS.length + 1} className="px-4 py-4">
                         <div className="h-5 animate-pulse rounded bg-slate-100" />
                       </td>
                     </tr>
@@ -154,6 +215,9 @@ export function LeadsPage() {
                     const ranked = leadVisibility ? leadVisibility.counts.visible + leadVisibility.counts.partly + leadVisibility.counts.invisible : 0;
                     return (
                       <tr key={lead.id} onClick={() => navigate(`/leads/${lead.id}`)} className="group cursor-pointer transition-colors hover:bg-panel/70">
+                        <td className="w-10 py-3 pl-4" onClick={(e) => e.stopPropagation()}>
+                          <input type="checkbox" className="h-4 w-4 accent-brand-700" aria-label={`Select ${lead.business_name}`} checked={selected.has(lead.id)} onChange={() => toggleOne(lead.id)} />
+                        </td>
                         <td className="px-3.5 py-3">
                           <div className="flex items-center gap-3">
                             <Avatar text={initials(lead.business_name)} />
@@ -231,6 +295,7 @@ export function LeadsPage() {
 
       <AddLeadDialog open={adding} onOpenChange={setAdding} locations={locations.data ?? []} />
       <ImportLeadsDialog open={importing} onOpenChange={setImporting} />
+      {confirmDialog}
     </div>
   );
 }

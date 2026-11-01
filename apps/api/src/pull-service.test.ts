@@ -49,6 +49,28 @@ describe("startLeadPull", () => {
     expect(run).toMatchObject({ status: "succeeded", phrases_done: 2, phrases_failed: 1 });
   });
 
+  it("logs why each phrase was left blank and keeps the latest reason on the succeeded run", async () => {
+    const repo = new FakeRepo();
+    repo.addLead("L", ["ok", "bad", "boom"]);
+    const serp = scriptedSerp((k) => (k === "bad" ? serpTaskError(40501, "Invalid Field: 'keyword'.") : k === "boom" ? new Error("ECONNRESET") : serpWithOrganic(["lead.co.uk"])));
+    const warn = vi.fn();
+
+    const run = await pullOnce(repo, serp, "L", {}, { warn, limit: pLimit(1) });
+
+    expect(warn.mock.calls.map((c) => c[0])).toEqual([
+      `Left blank: "bad" (lead L, location 2826) - DataForSEO 40501: Invalid Field: 'keyword'.`,
+      `Left blank: "boom" (lead L, location 2826) - DataForSEO 0: ECONNRESET`,
+    ]);
+    expect(run).toMatchObject({ status: "succeeded", phrases_failed: 2, error: "Last blank: DataForSEO 0: ECONNRESET" });
+  });
+
+  it("a run where every phrase failed is still failed, with its own message", async () => {
+    const repo = new FakeRepo();
+    repo.addLead("L", ["bad"]);
+    const run = await pullOnce(repo, scriptedSerp(() => serpTaskError(50000, "Internal Error.")), "L", {}, { warn: () => {} });
+    expect(run).toMatchObject({ status: "failed", phrases_failed: 1, error: "Every phrase failed - try updating again" });
+  });
+
   it("a network exception for one phrase is treated like a task error", async () => {
     const repo = new FakeRepo();
     repo.addLead("L", ["ok", "boom"]);
