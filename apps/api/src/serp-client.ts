@@ -1,5 +1,5 @@
 import type { MonthKey, SerpResponse, SerpTask } from "@lvt/shared";
-import { buildMockSerpResponse } from "@lvt/shared";
+import { buildMockSerpResponse, unreadGotoUrls, withResolvedUrls } from "@lvt/shared";
 
 export interface SerpContext {
   /** Only the mock uses this; the live API finds the domain on its own. */
@@ -21,6 +21,11 @@ export interface SerpClient {
 export const LIVE_ENDPOINT = "https://api.dataforseo.com/v3/serp/google/organic/live/regular";
 /** Free for any DataForSEO account; same request and response shape, dummy results (appendix/sandbox). */
 export const SANDBOX_ENDPOINT = "https://sandbox.dataforseo.com/v3/serp/google/organic/live/regular";
+
+/** Free; turns google.com/goto links into their destinations. Named in DataForSEO's 2 November 2026 notice, not yet in their docs. */
+export const GOTO_CONVERTER_ENDPOINT = "https://api.dataforseo.com/v3/appendix/goto_url_converter";
+/** Measured 3 November 2026: 80 links in one request failed after 61 s with 50000, 10 answered in under 5 s. */
+export const GOTO_BATCH_SIZE = 10;
 
 /** DataForSEO answers 200 except for these HTTP codes (appendix/errors); map them to the internal codes. */
 const HTTP_TO_STATUS: Record<number, { code: number; message: string }> = {
@@ -64,9 +69,37 @@ export function createLiveSerpClient(
         const mapped = HTTP_TO_STATUS[res.status] ?? { code: 50000, message: `HTTP ${res.status}` };
         return failure(mapped.code, mapped.message);
       }
-      return (await res.json()) as SerpResponse;
+      const response = (await res.json()) as SerpResponse;
+      const unread = environment === "live" ? unreadGotoUrls(response) : [];
+      return unread.length > 0 ? withResolvedUrls(response, await convertGotoUrls(unread)) : response;
     },
   };
+
+  /**
+   * Batches run one after another because Google slows the links of one results page down the faster
+   * they are opened. A failed batch leaves its links unread, which blanks a miss instead of failing the check.
+   */
+  async function convertGotoUrls(urls: string[]): Promise<Map<string, string>> {
+    const resolved = new Map<string, string>();
+    for (let i = 0; i < urls.length; i += GOTO_BATCH_SIZE) {
+      try {
+        const res = await fetchImpl(GOTO_CONVERTER_ENDPOINT, {
+          method: "POST",
+          headers: { Authorization: authorization, "Content-Type": "application/json" },
+          body: JSON.stringify([{ goto_urls: urls.slice(i, i + GOTO_BATCH_SIZE) }]),
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+        // An error answer (HTTP 500 with task 50000 when overloaded) carries no pairs, so it needs no branch of its own.
+        const body = (await res.json()) as { tasks?: Array<{ result?: Array<{ goto?: unknown; url?: unknown }> | null }> | null };
+        for (const pair of body.tasks?.[0]?.result ?? []) {
+          if (typeof pair.goto === "string" && typeof pair.url === "string") resolved.set(pair.goto, pair.url);
+        }
+      } catch {
+        // Unread links are reported on the blank cell by extractOrganicRank.
+      }
+    }
+    return resolved;
+  }
 }
 
 export function createMockSerpClient(options: { errorRate: number; latencyMs: number; random?: () => number }): SerpClient {

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { SerpItem, SerpResponse } from "./dataforseo";
-import { extractOrganicRank } from "./dataforseo";
-import { keywordKey, rankInSnapshot, snapshotFromResponse } from "./serp-snapshot";
+import { extractOrganicRank, unreadGotoUrls, withResolvedUrls } from "./dataforseo";
+import liveGoto from "./fixtures/live-serp-goto.json";
+import { hasUnreadLinks, keywordKey, rankInSnapshot, snapshotFromResponse } from "./serp-snapshot";
 
 const LEAD = "brightclean.co.uk";
 
@@ -84,5 +85,31 @@ describe("rankInSnapshot matches extractOrganicRank on the response it came from
   it("one snapshot answers for every lead domain in it", () => {
     const items = snapshotFromResponse(response([item("organic", 1, "a.co.uk"), item("organic", 2, "b.co.uk")]))!.items;
     expect([rankInSnapshot(items, "a.co.uk"), rankInSnapshot(items, "b.co.uk"), rankInSnapshot(items, "c.co.uk")]).toEqual([1, 2, 101]);
+  });
+});
+
+describe("GoTo links in saved checks", () => {
+  const gotoSerp = liveGoto as SerpResponse;
+  const resolved = withResolvedUrls(gotoSerp, new Map(unreadGotoUrls(gotoSerp).map((url, i) => [url, `https://www.youtube.com/watch?v=${i}`])));
+
+  it("a check with a link nobody could read is not saved", () => {
+    expect(snapshotFromResponse(gotoSerp)).toBeNull();
+  });
+
+  it("saves each GoTo result under its real site and ranks the same as the live answer", () => {
+    const snapshot = snapshotFromResponse(resolved)!;
+    expect(snapshot.items.slice(0, 7).map((i) => i.domain)).toEqual(["www.mws.ltd.uk", "nuweigh.com.au", "libraweighing.co.uk", "www.griffith-elder.com", "caliberscales.wixsite.com", "www.scalesmart.com", "www.youtube.com"]);
+    expect(hasUnreadLinks(snapshot.items)).toBe(false);
+    for (const lead of ["mws.ltd.uk", "henerscale.com", "youtube.com", "absent.co.uk"]) {
+      const live = extractOrganicRank(resolved, lead);
+      expect(live.kind === "ranked" && live.position).toBe(rankInSnapshot(snapshot.items, lead));
+    }
+  });
+
+  it("spots a check saved before GoTo links were read: the item kept the link's own Google host", () => {
+    const goto = "https://google.com/goto?url=CAES";
+    expect(hasUnreadLinks([{ rank: 1, domain: "google.com", url: goto, title: "" }])).toBe(true);
+    expect(hasUnreadLinks([{ rank: 1, domain: "www.mws.ltd.uk", url: goto, title: "" }])).toBe(false);
+    expect(hasUnreadLinks([{ rank: 1, domain: "www.google.com", url: "https://www.google.com/", title: "" }])).toBe(false);
   });
 });

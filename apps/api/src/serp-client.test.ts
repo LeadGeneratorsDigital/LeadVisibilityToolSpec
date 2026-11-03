@@ -1,6 +1,8 @@
+import type { SerpResponse } from "@lvt/shared";
 import { buildSerpTask, extractOrganicRank } from "@lvt/shared";
 import { describe, expect, it } from "vitest";
-import { createLiveSerpClient, createMockSerpClient, LIVE_ENDPOINT, SANDBOX_ENDPOINT } from "./serp-client";
+import converted from "./fixtures/goto-converter.json";
+import { createLiveSerpClient, createMockSerpClient, GOTO_BATCH_SIZE, GOTO_CONVERTER_ENDPOINT, LIVE_ENDPOINT, SANDBOX_ENDPOINT } from "./serp-client";
 import { serpWithOrganic } from "./test-support";
 
 const task = buildSerpTask("scaffolding hire london", 1006886);
@@ -97,4 +99,104 @@ describe("createLiveSerpClient timeout", () => {
       new Promise((_resolve, reject) => init.signal?.addEventListener("abort", () => reject(init.signal!.reason)))) as unknown as typeof fetch;
     await expect(createLiveSerpClient("a", "b", hang, 20).fetchSerp(task, ctx)).rejects.toThrow(/timeout|aborted/i);
   }, 1000);
+});
+
+describe("GoTo links", () => {
+  const goto = (n: number) => `https://google.com/goto?url=CAES${n}`;
+  /** Results 1..n are GoTo links; even ranks show their site in the breadcrumb, odd ranks (videos) do not. */
+  function gotoSerp(n: number): SerpResponse {
+    const serp = serpWithOrganic(Array.from({ length: n }, () => "google.com"));
+    for (const item of serp.tasks![0]!.result![0]!.items!) {
+      item.url = goto(item.rank_group);
+      item.breadcrumb = item.rank_group % 2 === 0 ? `https://www.site${item.rank_group}.co.uk › page` : "1.5k+ views  ·  2 years ago";
+    }
+    return serp;
+  }
+  const converterAnswer = (urls: string[], toUrl = (u: string) => `https://www.video${u.slice(u.lastIndexOf("S") + 1)}.com/watch`) => ({
+    status_code: 20000,
+    tasks: [{ status_code: 20000, result: urls.map((u) => ({ goto: u, url: toUrl(u) })) }],
+  });
+
+  /** Answers the SERP call with `serp`, then each converter call with `answer(sent urls)`. */
+  function scripted(serp: SerpResponse, answer: (urls: string[]) => { status: number; body: unknown } | Error) {
+    const sent: string[][] = [];
+    const state = { inFlight: 0, peak: 0 };
+    const impl = (async (url: string, init: RequestInit) => {
+      if (url !== GOTO_CONVERTER_ENDPOINT) return new Response(JSON.stringify(serp), { status: 200 });
+      const urls = (JSON.parse(init.body as string) as Array<{ goto_urls: string[] }>)[0]!.goto_urls;
+      sent.push(urls);
+      expect((init.headers as Record<string, string>).Authorization).toBe(`Basic ${Buffer.from("a:b").toString("base64")}`);
+      state.peak = Math.max(state.peak, ++state.inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      state.inFlight--;
+      const out = answer(urls);
+      if (out instanceof Error) throw out;
+      return new Response(JSON.stringify(out.body), { status: out.status });
+    }) as unknown as typeof fetch;
+    return { sent, state, impl };
+  }
+
+  it("sends only the links the breadcrumb cannot name, 10 per call, and ranks the converted sites", async () => {
+    const fake = scripted(gotoSerp(24), (urls) => ({ status: 200, body: converterAnswer(urls) }));
+    const res = await createLiveSerpClient("a", "b", fake.impl).fetchSerp(task, ctx);
+    expect(GOTO_BATCH_SIZE).toBe(10);
+    expect(fake.sent).toEqual([[1, 3, 5, 7, 9, 11, 13, 15, 17, 19].map(goto), [21, 23].map(goto)]);
+    expect(fake.state.peak).toBe(1);
+    expect(extractOrganicRank(res, "video21.com")).toEqual({ kind: "ranked", position: 21 });
+    expect(extractOrganicRank(res, "site24.co.uk")).toEqual({ kind: "ranked", position: 24 });
+    expect(extractOrganicRank(res, "absent.co.uk")).toEqual({ kind: "ranked", position: 101 });
+  });
+
+  it("reads DataForSEO's real converter answer", async () => {
+    const urls = converted.tasks[0]!.result.map((pair) => pair.goto);
+    const serp = serpWithOrganic(urls.map(() => "google.com"));
+    serp.tasks![0]!.result![0]!.items!.forEach((item, i) => (item.url = urls[i]!));
+    const fake = scripted(serp, () => ({ status: 200, body: converted }));
+    const res = await createLiveSerpClient("a", "b", fake.impl).fetchSerp(task, ctx);
+    expect(extractOrganicRank(res, "mws.ltd.uk")).toEqual({ kind: "ranked", position: 1 });
+    expect(extractOrganicRank(res, "youtube.com")).toEqual({ kind: "ranked", position: 4 });
+  });
+
+  it.each([
+    ["HTTP 500", () => ({ status: 500, body: { status_code: 20000, tasks: [{ status_code: 50000, result: null }] } })],
+    ["a task error", () => ({ status: 200, body: { status_code: 20000, tasks: [{ status_code: 50000, result: null }] } })],
+    ["a network error", () => new Error("socket hang up")],
+    ["a destination that is still a GoTo link", (urls: string[]) => ({ status: 200, body: converterAnswer(urls, (u) => u) })],
+  ])("after %s the links stay unread: a hit still ranks, a miss is blank", async (_label, answer) => {
+    const fake = scripted(gotoSerp(4), answer);
+    const res = await createLiveSerpClient("a", "b", fake.impl).fetchSerp(task, ctx);
+    expect(fake.sent).toEqual([[goto(1), goto(3)]]);
+    expect(extractOrganicRank(res, "site2.co.uk")).toEqual({ kind: "ranked", position: 2 });
+    expect(extractOrganicRank(res, "absent.co.uk")).toMatchObject({ kind: "error", statusCode: 0, fatal: false });
+  });
+
+  it.each([
+    ["HTTP 500", () => ({ status: 500, body: {} })],
+    ["a network error", () => new Error("socket hang up")],
+  ])("a batch lost to %s does not stop the next", async (_label, failure) => {
+    let call = 0;
+    const fake = scripted(gotoSerp(24), (urls) => (call++ === 0 ? failure() : { status: 200, body: converterAnswer(urls) }));
+    const res = await createLiveSerpClient("a", "b", fake.impl).fetchSerp(task, ctx);
+    expect(fake.sent).toHaveLength(2);
+    expect(extractOrganicRank(res, "video1.com")).toMatchObject({ kind: "error" });
+    expect(extractOrganicRank(res, "video23.com")).toEqual({ kind: "ranked", position: 23 });
+  });
+
+  it("a converter that never answers is cut off by the timeout and leaves its links unread", async () => {
+    const impl = ((url: string, init: RequestInit) =>
+      url === GOTO_CONVERTER_ENDPOINT
+        ? new Promise((_resolve, reject) => init.signal?.addEventListener("abort", () => reject(init.signal!.reason)))
+        : Promise.resolve(new Response(JSON.stringify(gotoSerp(2)), { status: 200 }))) as unknown as typeof fetch;
+    const res = await createLiveSerpClient("a", "b", impl, 20).fetchSerp(task, ctx);
+    expect(extractOrganicRank(res, "site2.co.uk")).toEqual({ kind: "ranked", position: 2 });
+    expect(extractOrganicRank(res, "absent.co.uk")).toMatchObject({ kind: "error", statusCode: 0 });
+  }, 1000);
+
+  it("makes no converter call when every site can be read, nor in sandbox", async () => {
+    const readable = scripted(serpWithOrganic(["lead.co.uk"]), () => new Error("must not be called"));
+    await createLiveSerpClient("a", "b", readable.impl).fetchSerp(task, ctx);
+    const sandbox = scripted(gotoSerp(3), () => new Error("must not be called"));
+    await createLiveSerpClient("a", "b", sandbox.impl, 1000, "sandbox").fetchSerp(task, ctx);
+    expect([...readable.sent, ...sandbox.sent]).toEqual([]);
+  });
 });

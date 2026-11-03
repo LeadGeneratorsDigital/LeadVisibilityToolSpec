@@ -94,9 +94,51 @@ function error(statusCode: number, message: string): RankOutcome {
 }
 
 /**
+ * Since late October 2026 Live answers leave most results as a google.com/goto redirect, with
+ * `domain` set to Google's, because DataForSEO only resolves part of them in Live mode.
+ */
+export function isGotoUrl(url: string): boolean {
+  return /^https?:\/\/(?:www\.)?google\.[a-z.]+\/goto\?/i.test(url);
+}
+
+/** The address Google prints above a result ("https://www.mws.ltd.uk › news"); a video prints its views instead. */
+export function breadcrumbHost(breadcrumb: string | null): string | null {
+  return /^https?:\/\/([^\s/›?#]+)/i.exec(breadcrumb ?? "")?.[1] ?? null;
+}
+
+/** The site an organic result belongs to, or null when a GoTo link hides it. */
+export function organicDomain(item: Pick<SerpItem, "url" | "domain" | "breadcrumb">): string | null {
+  return isGotoUrl(item.url) ? breadcrumbHost(item.breadcrumb) : item.domain;
+}
+
+/** GoTo links whose site cannot be read from the result itself, for the URL converter. */
+export function unreadGotoUrls(response: SerpResponse): string[] {
+  const items = response.tasks?.[0]?.result?.[0]?.items ?? [];
+  return items.filter((item) => item.type === "organic" && organicDomain(item) === null).map((item) => item.url);
+}
+
+/** A copy of the response with each converted GoTo link replaced by its destination, so `domain` is the real site. */
+export function withResolvedUrls(response: SerpResponse, resolved: ReadonlyMap<string, string>): SerpResponse {
+  const result = response.tasks?.[0]?.result?.[0];
+  if (!result?.items || resolved.size === 0) return response;
+  const items = result.items.map((item) => {
+    const url = resolved.get(item.url);
+    if (!url) return item;
+    try {
+      return { ...item, url, domain: new URL(url).hostname };
+    } catch {
+      return item;
+    }
+  });
+  const task = response.tasks![0]!;
+  return { ...response, tasks: [{ ...task, result: [{ ...result, items }, ...task.result!.slice(1)] }, ...response.tasks!.slice(1)] };
+}
+
+/**
  * Turns one live SERP response into the lead's organic rank.
- * - Uses `rank_group` of the first organic item whose domain matches (ads and snippets are not organic rank).
+ * - Uses `rank_group` of the first organic item whose site (organicDomain) matches (ads and snippets are not organic rank).
  * - Domain absent from a complete result set -> NOT_RANKED_POSITION.
+ * - Domain absent but some GoTo links unread -> an error (stored as NULL); a hit still counts.
  * - "No search results" (40102) is a valid empty SERP -> NOT_RANKED_POSITION.
  * - Partial results (40106) cannot prove absence, so a miss is an error (stored as NULL), a hit still counts.
  * - Any other non-20000 status is an error (spec section 6: blank on error, no retry).
@@ -119,10 +161,18 @@ export function extractOrganicRank(response: SerpResponse, leadDomain: string): 
   const items = task.result?.[0]?.items;
   if (!items) return error(task.status_code, "Task returned no result items");
 
-  const hit = items.find((item) => item.type === "organic" && domainMatches(item.domain, leadDomain));
+  let unread = 0;
+  const hit = items.find((item) => {
+    if (item.type !== "organic") return false;
+    const domain = organicDomain(item);
+    if (domain === null) unread++;
+    return domain !== null && domainMatches(domain, leadDomain);
+  });
   if (hit) {
     return { kind: "ranked", position: positionFromRankGroup(hit.rank_group) };
   }
   if (partial) return error(task.status_code, task.status_message);
+  // Like a partial result: a hidden site could be the lead's, so "not in the top 100" is not proven.
+  if (unread > 0) return error(0, `${unread} Google links could not be read, so the site may be among them`);
   return { kind: "ranked", position: NOT_RANKED_POSITION };
 }

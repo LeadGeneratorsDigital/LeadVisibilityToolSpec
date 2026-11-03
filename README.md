@@ -46,6 +46,11 @@ security). The API uses the service-role key.
    included, and saves the position under the current month (Europe/London calendar).
    - A phrase that is not found counts as Not Ranked (position 101).
    - A phrase whose check fails is left blank.
+   - Since late October 2026 Google hides most results behind `google.com/goto` links, which
+     DataForSEO's Live mode only partly resolves. The API reads the website from the address
+     Google prints above the result, and sends the rest (mostly videos) to DataForSEO's free GoTo
+     URL converter. If a link still cannot be read and the lead's website is not found, the phrase
+     is left blank rather than marked Not Ranked.
 3. The first update of a month only checks phrases with no result for that month yet. It also
    reuses a Google result saved this month, in the last 7 days, for the same phrase and country, so the
    duplicate costs nothing. Clicking again in the same month asks for confirmation, then checks

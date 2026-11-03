@@ -1,0 +1,237 @@
+{
+  "version": "0.1.20261103",
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "time": "18.7279 sec.",
+  "cost": 0.02,
+  "tasks_count": 1,
+  "tasks_error": 0,
+  "tasks": [
+    {
+      "id": "11031235-2797-0121-0000-e9b66dd3578e",
+      "status_code": 20000,
+      "status_message": "Ok.",
+      "time": "18.5977 sec.",
+      "cost": 0.02,
+      "result_count": 1,
+      "path": [
+        "v3",
+        "serp",
+        "google",
+        "organic",
+        "live",
+        "regular"
+      ],
+      "data": {
+        "api": "serp",
+        "function": "live",
+        "se": "google",
+        "se_type": "organic",
+        "keyword": "portable weighbridge",
+        "location_code": 2826,
+        "language_code": "en",
+        "device": "desktop",
+        "os": "windows",
+        "depth": 100
+      },
+      "result": [
+        {
+          "keyword": "portable weighbridge",
+          "type": "organic",
+          "se_domain": "google.com",
+          "location_code": 2826,
+          "language_code": "en",
+          "check_url": "https://www.google.com/search?q=portable%20weighbridge&hl=en&gl=GB&ie=UTF-8&uule=w+CAIQIFISCamRx0IRO1oCEXoliDJDoPjE",
+          "datetime": "2026-11-03 12:36:01 +00:00",
+          "item_types": [
+            "images",
+            "organic",
+            "popular_products",
+            "people_also_ask",
+            "related_searches"
+          ],
+          "se_results_count": 145,
+          "items_count": 16,
+          "items": [
+            {
+              "type": "organic",
+              "rank_group": 1,
+              "rank_absolute": 2,
+              "page": 1,
+              "domain": "google.com",
+              "title": "What is a weighbridge? Where Can I Buy One",
+              "description": "4 Feb 2026 — Portable weighbridges: Portable weighbridges are designed to be moved easily from one location to another. They are usually lightweight and made ... Read more",
+              "url": "https://google.com/goto?url=CAESaAHrOzAVNvRX_rIoKQo5erfKJYelUTMF3y-SpPLIoJabSAV6uqWeHXwQTomwOEsV-3kvDKy1VPKNM1-Fx6uV_-tdmT44cdzPKEQmE9jmxLehb1vRJTGCEmZAgbwZnE5fd1u9r5PMsabF&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+              "breadcrumb": "https://www.mws.ltd.uk › what-is-a-weighbridge"
+            },
+            {
+              "type": "organic",
+              "rank_group": 2,
+              "rank_absolute": 3,
+              "page": 1,
+              "domain": "nuweigh.com.au",
+              "title": "Portable Weighbridges | Heavy Duty & Mobile",
+              "description": "Portable and mobile weighbridges for sites that need to weigh on the go, with accurate results anywhere. Get a quote or talk to our team today.",
+              "url": "https://nuweigh.com.au/weighbridges/portable-weighbridges",
+              "breadcrumb": "https://nuweigh.com.au › weighbridges › portable-weig..."
+            },
+            {
+              "type": "organic",
+              "rank_group": 3,
+              "rank_absolute": 4,
+              "page": 1,
+              "domain": "libraweighing.co.uk",
+              "title": "Choosing The Right Weighbridge: A UK Buyer's Guide",
+              "description": "Portable Weighbridges: Engineered specifically for rapid deployment and strike-down across temporary industrial sites or remote quarries. Modular Weighbridges: ... Read more",
+              "url": "https://libraweighing.co.uk/articles/weighbridge-buying-guide-uk/",
+              "breadcrumb": "https://libraweighing.co.uk › Articles"
+            },
+            {
+              "type": "organic",
+              "rank_group": 4,
+              "rank_absolute": 6,
+              "page": 1,
+              "domain": "www.griffith-elder.com",
+              "title": "Portable Weigh beams vs Portable Full Size Weighbridge",
+              "description": "20 Mar 2025 — Portable full size weighbridges are larger scales that you can still move around. They're more complete than weigh beams and offer a higher ... Read more",
+              "url": "https://www.griffith-elder.com/2025/03/20/portable-weigh-beams-vs-portable-full-size-weighbridge-cost-benefit-analysis/",
+              "breadcrumb": "https://www.griffith-elder.com › News"
+            },
+            {
+              "type": "organic",
+              "rank_group": 5,
+              "rank_absolute": 7,
+              "page": 1,
+              "domain": "google.com",
+              "title": "What is a Mobile Weighbridge?",
+              "description": "A mobile weighbridge is a portable weighing scale that can be moved from one location to another, typically using a truck or trailer.",
+              "url": "https://google.com/goto?url=CAESfgHrOzAV6Y3YSsl973uHfC4R4SemHA2OBojh9uzw0xQTswZPo_0ha9Man2qftdHj3CrrtkFXKt7jP55WQ-y-C32Wq87LoRIrB1FZBdB9Spz42fnCh-S1MJzx1EM9pxkNiFQfNv8UUU8Ob2uwHf-W-6B6PdEoNnvlLcP1Z3tgoQ&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+              "breadcrumb": "https://caliberscales.wixsite.com › home › what-is-a-mobi..."
+            },
+            {
+              "type": "organic",
+              "rank_group": 6,
+              "rank_absolute": 8,
+              "page": 1,
+              "domain": "google.com",
+              "title": "Wireless Vehicle Weighpad Sets - Portable Axle Scales",
+              "description": "These pads are designed to be portable and easily deployable, providing a convenient solution for weighing vehicles in various locations without the need for a ... Read more",
+              "url": "https://google.com/goto?url=CAESjQEB6zswFa_R7-zaTAZTu0_Cr5UnR7BzwvmZkegaqKRrtQqH0Bhrbw6fCY7-9kK63o1KVz6j7Se2MivMKwqmuAnFjgVz7eKkcNHOB5rZzOqQXLULxpGmPd4bydhUaKeWB-QMlavIRzYwej_PtxlRpGu10l6EeRE8-mRUBfYojOQ6OgdoOV3DzMikwV3sDKg&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+              "breadcrumb": "https://www.scalesmart.com › vehicle-weighing-pads › w..."
+            },
+            {
+              "type": "organic",
+              "rank_group": 7,
+              "rank_absolute": 9,
+              "page": 1,
+              "domain": "google.com",
+              "title": "Installation of the axle|MOBILE portable weighbridge for trucks ...",
+              "description": "The installation of our portable truck scale axle|MOBILE is a simple process. It can be done by one person in less than 20 minutes.",
+              "url": "https://google.com/goto?url=CAESZgHrOzAVz7ytsKliwjSbEVfz22wr4yponb0E7fUdmCugnPAnmVtSWduAFuYnnnChnas3HomwPNF0XlucAHyCgIi8oGnOTKxn3v6dkskmwM8aJ5aipnpLMSmebFrZ06fRTuF49Q6mQg&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+              "breadcrumb": "1.5k+ views  ·  2 years ago"
+            },
+            {
+              "type": "organic",
+              "rank_group": 8,
+              "rank_absolute": 10,
+              "page": 1,
+              "domain": "google.com",
+              "title": "Weighbridge Portable | PDF | Manufactured Goods",
+              "description": "The Ton-Tel Portable. Weighbridge Digital weighing for accurate results. Sizes: 6.3m, 9.3m 12.3m, 15.3m, 18.3m,. 21.3m, 22.8m, 24.3m, 28.3m, 30.3m. Read more",
+              "url": "https://google.com/goto?url=CAESeQHrOzAVdkAii6e2NR1mGMdwnIn8nq6D6jyb6kRI7095rM_nsPMIZoHct0BKZDCtWtA97V6opXIU-HolboH0J6wL2kIb3_b_eL0S3nji0cglOr--nyf1eLpv3Ob_WyQVL1CM1UDEfyE6FxQB8LEZTfhavMjI7E7Oabg&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+              "breadcrumb": "https://www.scribd.com › document › Weighbridge-por..."
+            },
+            {
+              "type": "organic",
+              "rank_group": 9,
+              "rank_absolute": 11,
+              "page": 1,
+              "domain": "google.com",
+              "title": "What are the Different Types of Weighbridges?",
+              "description": "4 Jan 2023 — As their name suggests, portable weighbridges are designed to be easy to move across different locations. Portable weighbridges are most ... Read more",
+              "url": "https://google.com/goto?url=CAEShwEB6zswFbUHG6_QUEINzRzYON4jnjqm-Ky8bBu7HWa8-BoWtRAhZsInevP7z-ZQU_HUcuy-LNU6BoDMckpvcyaPlgvabGf9NIWtV0PLF96eZPVCkb-4yOIZZwTigbkV24giri7G8u1h2fCD5IWAFTmKJOp4D_ksiDaSn12S09dvl2np_yrPbic&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+              "breadcrumb": "https://www.weightron.com › News"
+            },
+            {
+              "type": "organic",
+              "rank_group": 10,
+              "rank_absolute": 15,
+              "page": 2,
+              "domain": "google.com",
+              "title": "PORTABLE WEIGHBRIDGE",
+              "description": "12 Mar 2024 — Elevate your weighing operations with the WB-PT, the epitome of portability and convenience in weighbridge technology. At a mere height of 28.5 ... Read more",
+              "url": "https://google.com/goto?url=CAESlQEB6zswFYkMYETX-qKroHJS_iSNQaHGTLrI0SrR6TJ8LaN64Tmc08PJ30X3tjD5qLFVAN8QZKX4KyI57Ehp2a3QMpz3cw4ZLcB6fqZy_sMXSUsqOU_4X7Nr3TLdI3aW7I0w_c9dG6HyQY4jsdzn0EvpWEVW9FgocRu6TPouGb6kFVpl-JpHzEcEYd0-xriFp0uf170Myg&gsessionid=8C5_jHQ0jeuHUTQCJ7ZzjivbHw1Vl3TfTA9qyNBSYbgxnZ4Ih1FEZQ",
+              "breadcrumb": "https://www.sascoafrica.com › uploads › 2024/03"
+            },
+            {
+              "type": "organic",
+              "rank_group": 11,
+              "rank_absolute": 16,
+              "page": 2,
+              "domain": "google.com",
+              "title": "Parkerfarm - Portable Weighbridge for Farming",
+              "description": "... Portable Axle Scale, providing an economical alternative to a full size weighbridge. The scale consists of twin, heavy-duty platforms ...",
+              "url": "https://google.com/goto?url=CAESZgHrOzAVnidF0S-9cXFCINwknU65grj0iu_06LO-5G5Lu-LN9ADsB5YdeV7Mnz1KJuymoOAdfF94QGMLrY6Si6mrqIR2nQ_-Rl7uGu_SyLETke1QtSHoFtidtucRrOVauxPdrHaNlg&gsessionid=8C5_jHQ0jeuHUTQCJ7ZzjivbHw1Vl3TfTA9qyNBSYbgxnZ4Ih1FEZQ",
+              "breadcrumb": "500+ views  ·  4 years ago"
+            },
+            {
+              "type": "organic",
+              "rank_group": 12,
+              "rank_absolute": 17,
+              "page": 2,
+              "domain": "google.com",
+              "title": "​Portable Weighbridge Kits",
+              "description": "22 May 2021 — A Portable Weighbridge is a device that allows you to use a standard wall hook to secure loads on flat ground, giving the added benefit of ... Read more",
+              "url": "https://google.com/goto?url=CAEShwEB6zswFTVsG9XzX7oJhyTTuS6RUWKym-LizIXAD-GViJuRiyMb3X_Vb9j6X44_v8HqTdiJuwLnMraa2WR3ek5oiQeSMI3WvCO9q2aK5xJmE_AfxNUb4grhGjurZHDe1fNIORpw8ntPYEXhUm_RTynMCJMypdz-uCDm-nxXOFPxa9pnNM1Sz3U&gsessionid=8C5_jHQ0jeuHUTQCJ7ZzjivbHw1Vl3TfTA9qyNBSYbgxnZ4Ih1FEZQ",
+              "breadcrumb": "https://reliabletruckscalesupplier.weebly.com › blog › po..."
+            },
+            {
+              "type": "organic",
+              "rank_group": 13,
+              "rank_absolute": 18,
+              "page": 2,
+              "domain": "www.ebay.co.uk",
+              "title": "Weigh Bridge",
+              "description": "1x 3 metre Heavy Duty weighbridge T-Section rubber Inc VAT & Delivery · £98.00 ; New Weighbridge - Delivered & Installed · £15,752.25. Read more",
+              "url": "https://www.ebay.co.uk/shop/weigh-bridge?_nkw=weigh+bridge",
+              "breadcrumb": "https://www.ebay.co.uk › shop › weigh-bridge"
+            },
+            {
+              "type": "organic",
+              "rank_group": 14,
+              "rank_absolute": 19,
+              "page": 2,
+              "domain": "google.com",
+              "title": "Can Portable Axle Scales Replace Permanent Truck ...",
+              "description": "7 Jan 2026 — Full-draft weighbridges offer 0.1% accuracy for commercial trade, while modern portable axle scales achieve 0.5% to 1.0% accuracy. This level of ... Read more",
+              "url": "https://google.com/goto?url=CAESqgEB6zswFX2aiAW6SnRj_OObWRctTg_9TEQGHPHwpZRYB2jbpeMQs7e3xxdd_rWF2IrsFI2ObWTEO5Paw0R4kij920gpBwxbHM2mQRrh1VHwwWMZCltr95qdBHPa3VSCaPIRKu8cV0qKbz_NJO714w-EZArQs5dpHOt0B6-I5Uq_k7pE4-xuxxKZLET9XAb-Y5cjl6olMB437zlK9f4gT-lkff5R3UJO1tqC2A&gsessionid=8C5_jHQ0jeuHUTQCJ7ZzjivbHw1Vl3TfTA9qyNBSYbgxnZ4Ih1FEZQ",
+              "breadcrumb": "https://henerscale.com › the-weighbridge-alternative-ca..."
+            },
+            {
+              "type": "organic",
+              "rank_group": 15,
+              "rank_absolute": 20,
+              "page": 2,
+              "domain": "google.com",
+              "title": "Ultimate guide on how to install a farm weighbridge",
+              "description": "Portable -axle scales and many full-size, drive-through setups can be installed on existing roadways or concrete, but, in many cases, the ground ...",
+              "url": "https://google.com/goto?url=CAESnwEB6zswFdRbIcziwD4FsQfdtI0_r7p_2DwdwdG_KSgSpgATfKCUQqN8dgKinIV1YW1Ao915q8qjXI4wecoKup0w04LSWc2VybwFX8YESpBcuRDAzQZfAMp90CudS9SfEZ0mB8kTRUlYsppx3eBpsrwr02C6Te7ZXSxoW8NgznzDKAEZTbTwv1dbfiPBp9tA9OvmBIA7qiMgTP8Eb5zK2ps&gsessionid=8C5_jHQ0jeuHUTQCJ7ZzjivbHw1Vl3TfTA9qyNBSYbgxnZ4Ih1FEZQ",
+              "breadcrumb": "https://www.fwi.co.uk › machinery › farm-maintenance"
+            },
+            {
+              "type": "organic",
+              "rank_group": 16,
+              "rank_absolute": 21,
+              "page": 2,
+              "domain": "google.com",
+              "title": "Portable Weighing pad for Truck weighing application ...",
+              "description": "Intercomp LS630-WIM™ Portable Weigh-In-Motion System Demonstration. Intercomp Company · 14K views ; Axle Scale - Portable Axle Truck Scale.",
+              "url": "https://google.com/goto?url=CAESZgHrOzAV2ZmbLxOeewclcLHmhzLRhUmQnOrNZKh_CQEbqV7_5-89fROvq-T_cFl2VxxP7OMBKoyZbh7PLlR2AIvFZYMpC0nndyBYA6114rw2IgzAn3PxMdAUvuJu-G9awIZxul65ew&gsessionid=8C5_jHQ0jeuHUTQCJ7ZzjivbHw1Vl3TfTA9qyNBSYbgxnZ4Ih1FEZQ",
+              "breadcrumb": "1.1k+ views  ·  3 years ago"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

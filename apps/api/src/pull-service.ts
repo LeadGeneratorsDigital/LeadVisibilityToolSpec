@@ -1,5 +1,5 @@
 import type { MonthKey, RankOutcome, SerpResponse, SnapshotItem } from "@lvt/shared";
-import { buildSerpTask, currentMonthKey, extractOrganicRank, keywordKey, rankInSnapshot, snapshotFromResponse } from "@lvt/shared";
+import { buildSerpTask, currentMonthKey, extractOrganicRank, hasUnreadLinks, keywordKey, rankInSnapshot, snapshotFromResponse } from "@lvt/shared";
 export { INTERRUPTED_RUN_ERROR } from "@lvt/shared";
 import type { SerpClient } from "./serp-client";
 
@@ -209,7 +209,7 @@ function resolveCheck(deps: PullDeps, job: PullJob, phrase: PullPhrase): Promise
         return null;
       });
       // A check from last month must not fill this month's column, however recent it is.
-      if (saved && currentMonthKey(saved.fetched_at) === job.month) return { source: "saved", snapshot: saved };
+      if (saved && currentMonthKey(saved.fetched_at) === job.month && !hasUnreadLinks(saved.items)) return { source: "saved", snapshot: saved };
     }
     const response = await serp.fetchSerp(buildSerpTask(phrase.phrase_text, job.locationCode), { targetDomain: job.domain, month: job.month });
     const fetchedAt = job.now();

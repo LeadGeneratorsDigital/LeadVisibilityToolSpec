@@ -1,0 +1,82 @@
+{
+  "version": "0.1.20261103",
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "time": "3.9523 sec.",
+  "cost": 0,
+  "tasks_count": 1,
+  "tasks_error": 0,
+  "tasks": [
+    {
+      "id": "11031237-2797-0666-0000-9c3516563072",
+      "status_code": 20000,
+      "status_message": "Ok.",
+      "time": "3.9240 sec.",
+      "cost": 0,
+      "result_count": 10,
+      "path": [
+        "v3",
+        "appendix",
+        "goto_url_converter"
+      ],
+      "data": {
+        "api": "appendix",
+        "function": "goto_url_converter",
+        "goto_urls": [
+          "https://google.com/goto?url=CAESaAHrOzAVNvRX_rIoKQo5erfKJYelUTMF3y-SpPLIoJabSAV6uqWeHXwQTomwOEsV-3kvDKy1VPKNM1-Fx6uV_-tdmT44cdzPKEQmE9jmxLehb1vRJTGCEmZAgbwZnE5fd1u9r5PMsabF&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+          "https://google.com/goto?url=CAESfgHrOzAV6Y3YSsl973uHfC4R4SemHA2OBojh9uzw0xQTswZPo_0ha9Man2qftdHj3CrrtkFXKt7jP55WQ-y-C32Wq87LoRIrB1FZBdB9Spz42fnCh-S1MJzx1EM9pxkNiFQfNv8UUU8Ob2uwHf-W-6B6PdEoNnvlLcP1Z3tgoQ&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+          "https://google.com/goto?url=CAESjQEB6zswFa_R7-zaTAZTu0_Cr5UnR7BzwvmZkegaqKRrtQqH0Bhrbw6fCY7-9kK63o1KVz6j7Se2MivMKwqmuAnFjgVz7eKkcNHOB5rZzOqQXLULxpGmPd4bydhUaKeWB-QMlavIRzYwej_PtxlRpGu10l6EeRE8-mRUBfYojOQ6OgdoOV3DzMikwV3sDKg&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+          "https://google.com/goto?url=CAESZgHrOzAVz7ytsKliwjSbEVfz22wr4yponb0E7fUdmCugnPAnmVtSWduAFuYnnnChnas3HomwPNF0XlucAHyCgIi8oGnOTKxn3v6dkskmwM8aJ5aipnpLMSmebFrZ06fRTuF49Q6mQg&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+          "https://google.com/goto?url=CAESeQHrOzAVdkAii6e2NR1mGMdwnIn8nq6D6jyb6kRI7095rM_nsPMIZoHct0BKZDCtWtA97V6opXIU-HolboH0J6wL2kIb3_b_eL0S3nji0cglOr--nyf1eLpv3Ob_WyQVL1CM1UDEfyE6FxQB8LEZTfhavMjI7E7Oabg&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+          "https://google.com/goto?url=CAEShwEB6zswFbUHG6_QUEINzRzYON4jnjqm-Ky8bBu7HWa8-BoWtRAhZsInevP7z-ZQU_HUcuy-LNU6BoDMckpvcyaPlgvabGf9NIWtV0PLF96eZPVCkb-4yOIZZwTigbkV24giri7G8u1h2fCD5IWAFTmKJOp4D_ksiDaSn12S09dvl2np_yrPbic&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+          "https://google.com/goto?url=CAESlQEB6zswFYkMYETX-qKroHJS_iSNQaHGTLrI0SrR6TJ8LaN64Tmc08PJ30X3tjD5qLFVAN8QZKX4KyI57Ehp2a3QMpz3cw4ZLcB6fqZy_sMXSUsqOU_4X7Nr3TLdI3aW7I0w_c9dG6HyQY4jsdzn0EvpWEVW9FgocRu6TPouGb6kFVpl-JpHzEcEYd0-xriFp0uf170Myg&gsessionid=8C5_jHQ0jeuHUTQCJ7ZzjivbHw1Vl3TfTA9qyNBSYbgxnZ4Ih1FEZQ",
+          "https://google.com/goto?url=CAESZgHrOzAVnidF0S-9cXFCINwknU65grj0iu_06LO-5G5Lu-LN9ADsB5YdeV7Mnz1KJuymoOAdfF94QGMLrY6Si6mrqIR2nQ_-Rl7uGu_SyLETke1QtSHoFtidtucRrOVauxPdrHaNlg&gsessionid=8C5_jHQ0jeuHUTQCJ7ZzjivbHw1Vl3TfTA9qyNBSYbgxnZ4Ih1FEZQ",
+          "https://google.com/goto?url=CAEShwEB6zswFTVsG9XzX7oJhyTTuS6RUWKym-LizIXAD-GViJuRiyMb3X_Vb9j6X44_v8HqTdiJuwLnMraa2WR3ek5oiQeSMI3WvCO9q2aK5xJmE_AfxNUb4grhGjurZHDe1fNIORpw8ntPYEXhUm_RTynMCJMypdz-uCDm-nxXOFPxa9pnNM1Sz3U&gsessionid=8C5_jHQ0jeuHUTQCJ7ZzjivbHw1Vl3TfTA9qyNBSYbgxnZ4Ih1FEZQ",
+          "https://google.com/goto?url=CAESqgEB6zswFX2aiAW6SnRj_OObWRctTg_9TEQGHPHwpZRYB2jbpeMQs7e3xxdd_rWF2IrsFI2ObWTEO5Paw0R4kij920gpBwxbHM2mQRrh1VHwwWMZCltr95qdBHPa3VSCaPIRKu8cV0qKbz_NJO714w-EZArQs5dpHOt0B6-I5Uq_k7pE4-xuxxKZLET9XAb-Y5cjl6olMB437zlK9f4gT-lkff5R3UJO1tqC2A&gsessionid=8C5_jHQ0jeuHUTQCJ7ZzjivbHw1Vl3TfTA9qyNBSYbgxnZ4Ih1FEZQ"
+        ]
+      },
+      "result": [
+        {
+          "goto": "https://google.com/goto?url=CAESaAHrOzAVNvRX_rIoKQo5erfKJYelUTMF3y-SpPLIoJabSAV6uqWeHXwQTomwOEsV-3kvDKy1VPKNM1-Fx6uV_-tdmT44cdzPKEQmE9jmxLehb1vRJTGCEmZAgbwZnE5fd1u9r5PMsabF&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+          "url": "https://www.mws.ltd.uk/what-is-a-weighbridge/"
+        },
+        {
+          "goto": "https://google.com/goto?url=CAESfgHrOzAV6Y3YSsl973uHfC4R4SemHA2OBojh9uzw0xQTswZPo_0ha9Man2qftdHj3CrrtkFXKt7jP55WQ-y-C32Wq87LoRIrB1FZBdB9Spz42fnCh-S1MJzx1EM9pxkNiFQfNv8UUU8Ob2uwHf-W-6B6PdEoNnvlLcP1Z3tgoQ&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+          "url": "https://caliberscales.wixsite.com/home/what-is-a-mobile-weighbridge"
+        },
+        {
+          "goto": "https://google.com/goto?url=CAESjQEB6zswFa_R7-zaTAZTu0_Cr5UnR7BzwvmZkegaqKRrtQqH0Bhrbw6fCY7-9kK63o1KVz6j7Se2MivMKwqmuAnFjgVz7eKkcNHOB5rZzOqQXLULxpGmPd4bydhUaKeWB-QMlavIRzYwej_PtxlRpGu10l6EeRE8-mRUBfYojOQ6OgdoOV3DzMikwV3sDKg&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+          "url": "https://www.scalesmart.com/vehicle-scales/vehicle-weighing-pads/wireless-weighpads"
+        },
+        {
+          "goto": "https://google.com/goto?url=CAESZgHrOzAVz7ytsKliwjSbEVfz22wr4yponb0E7fUdmCugnPAnmVtSWduAFuYnnnChnas3HomwPNF0XlucAHyCgIi8oGnOTKxn3v6dkskmwM8aJ5aipnpLMSmebFrZ06fRTuF49Q6mQg&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+          "url": "https://www.youtube.com/watch?v=MOMybBhoUfQ"
+        },
+        {
+          "goto": "https://google.com/goto?url=CAESeQHrOzAVdkAii6e2NR1mGMdwnIn8nq6D6jyb6kRI7095rM_nsPMIZoHct0BKZDCtWtA97V6opXIU-HolboH0J6wL2kIb3_b_eL0S3nji0cglOr--nyf1eLpv3Ob_WyQVL1CM1UDEfyE6FxQB8LEZTfhavMjI7E7Oabg&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+          "url": "https://www.scribd.com/document/783006314/Weighbridge-portable"
+        },
+        {
+          "goto": "https://google.com/goto?url=CAEShwEB6zswFbUHG6_QUEINzRzYON4jnjqm-Ky8bBu7HWa8-BoWtRAhZsInevP7z-ZQU_HUcuy-LNU6BoDMckpvcyaPlgvabGf9NIWtV0PLF96eZPVCkb-4yOIZZwTigbkV24giri7G8u1h2fCD5IWAFTmKJOp4D_ksiDaSn12S09dvl2np_yrPbic&gsessionid=ZHFhO4GgugXDFzQ5xSlxVj2Avv0sLMIJ5qe7_Bv5AqL0MbEGAHDlpg",
+          "url": "https://www.weightron.com/news/what-are-the-different-types-of-weighbridges/"
+        },
+        {
+          "goto": "https://google.com/goto?url=CAESlQEB6zswFYkMYETX-qKroHJS_iSNQaHGTLrI0SrR6TJ8LaN64Tmc08PJ30X3tjD5qLFVAN8QZKX4KyI57Ehp2a3QMpz3cw4ZLcB6fqZy_sMXSUsqOU_4X7Nr3TLdI3aW7I0w_c9dG6HyQY4jsdzn0EvpWEVW9FgocRu6TPouGb6kFVpl-JpHzEcEYd0-xriFp0uf170Myg&gsessionid=8C5_jHQ0jeuHUTQCJ7ZzjivbHw1Vl3TfTA9qyNBSYbgxnZ4Ih1FEZQ",
+          "url": "https://www.sascoafrica.com/wp-content/uploads/2024/03/Portable-Weighbridge-WB-PT-2024.pdf"
+        },
+        {
+          "goto": "https://google.com/goto?url=CAESZgHrOzAVnidF0S-9cXFCINwknU65grj0iu_06LO-5G5Lu-LN9ADsB5YdeV7Mnz1KJuymoOAdfF94QGMLrY6Si6mrqIR2nQ_-Rl7uGu_SyLETke1QtSHoFtidtucRrOVauxPdrHaNlg&gsessionid=8C5_jHQ0jeuHUTQCJ7ZzjivbHw1Vl3TfTA9qyNBSYbgxnZ4Ih1FEZQ",
+          "url": "https://www.youtube.com/watch?v=6wTdLLn90vI"
+        },
+        {
+          "goto": "https://google.com/goto?url=CAEShwEB6zswFTVsG9XzX7oJhyTTuS6RUWKym-LizIXAD-GViJuRiyMb3X_Vb9j6X44_v8HqTdiJuwLnMraa2WR3ek5oiQeSMI3WvCO9q2aK5xJmE_AfxNUb4grhGjurZHDe1fNIORpw8ntPYEXhUm_RTynMCJMypdz-uCDm-nxXOFPxa9pnNM1Sz3U&gsessionid=8C5_jHQ0jeuHUTQCJ7ZzjivbHw1Vl3TfTA9qyNBSYbgxnZ4Ih1FEZQ",
+          "url": "https://reliabletruckscalesupplier.weebly.com/blog/portable-weighbridge-kits"
+        },
+        {
+          "goto": "https://google.com/goto?url=CAESqgEB6zswFX2aiAW6SnRj_OObWRctTg_9TEQGHPHwpZRYB2jbpeMQs7e3xxdd_rWF2IrsFI2ObWTEO5Paw0R4kij920gpBwxbHM2mQRrh1VHwwWMZCltr95qdBHPa3VSCaPIRKu8cV0qKbz_NJO714w-EZArQs5dpHOt0B6-I5Uq_k7pE4-xuxxKZLET9XAb-Y5cjl6olMB437zlK9f4gT-lkff5R3UJO1tqC2A&gsessionid=8C5_jHQ0jeuHUTQCJ7ZzjivbHw1Vl3TfTA9qyNBSYbgxnZ4Ih1FEZQ",
+          "url": "https://henerscale.com/the-weighbridge-alternative-can-portable-axle-scales-replace-your-permanent-truck-scale/"
+        }
+      ]
+    }
+  ]
+}

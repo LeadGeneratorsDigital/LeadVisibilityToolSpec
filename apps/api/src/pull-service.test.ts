@@ -397,6 +397,20 @@ describe("saved checks", () => {
     expect(serp.calls).toHaveLength(calls);
   });
 
+  it("never reuses a check saved before GoTo links were read: it pays for a new one and saves that", async () => {
+    const repo = new FakeRepo();
+    repo.addLead("L", ["a"]);
+    savedCheck(repo, "a", new Date(NOW.getTime() - DAY), ["lead.co.uk"]);
+    repo.snapshots[0]!.items = [{ rank: 1, domain: "google.com", url: "https://google.com/goto?url=CAES1", title: "" }];
+    const serp = scriptedSerp(() => serpWithOrganic(["rival.co.uk", "lead.co.uk"]));
+
+    await pullOnce(repo, serp);
+
+    expect(serp.calls).toEqual(["a"]);
+    expect(repo.ranking("L-p0", MONTH)).toBe(2);
+    expect(repo.check("L-p0", MONTH)).toEqual({ checkedAt: NOW, snapshotId: "snap-2" });
+  });
+
   it("the default max age is 7 days", async () => {
     const repo = new FakeRepo();
     repo.addLead("A", ["a"]);

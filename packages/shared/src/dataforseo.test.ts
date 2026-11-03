@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SerpItem, SerpResponse } from "./dataforseo";
-import { buildSerpTask, extractOrganicRank, positionFromRankGroup, SERP_DEPTH } from "./dataforseo";
+import { breadcrumbHost, buildSerpTask, extractOrganicRank, isGotoUrl, organicDomain, positionFromRankGroup, SERP_DEPTH, unreadGotoUrls, withResolvedUrls } from "./dataforseo";
+import liveGoto from "./fixtures/live-serp-goto.json";
 
 const LEAD = "brightclean.co.uk";
 
@@ -106,5 +107,72 @@ describe("extractOrganicRank", () => {
 
   it("an empty tasks array is an error", () => {
     expect(extractOrganicRank({ ...response([]), tasks: [] }, LEAD)).toMatchObject({ kind: "error" });
+  });
+});
+
+/** First 16 organic results of a real Live answer ("portable weighbridge", UK, 3 Nov 2026): 12 are GoTo links, 3 of them videos. */
+const gotoSerp = liveGoto as SerpResponse;
+const gotoItems = gotoSerp.tasks![0]!.result![0]!.items!;
+const videoUrls = [7, 11, 16].map((rank) => gotoItems.find((item) => item.rank_group === rank)!.url);
+
+describe("GoTo links", () => {
+  it.each([
+    ["https://google.com/goto?url=CAES", true],
+    ["https://www.google.co.uk/goto?url=CAES", true],
+    ["https://www.google.com/search?q=goto", false],
+    ["https://support.google.com/goto?url=x", false],
+    ["https://example.com/goto?url=x", false],
+    ["https://example.com/out?to=https://google.com/goto?url=CAES", false],
+  ])("isGotoUrl(%s) is %s", (url, expected) => {
+    expect(isGotoUrl(url)).toBe(expected);
+  });
+
+  it.each([
+    ["https://www.mws.ltd.uk › what-is-a-weighbridge", "www.mws.ltd.uk"],
+    ["https://weighbridgeservices.com", "weighbridgeservices.com"],
+    ["https://b2bwiki.baidu.com › porta...", "b2bwiki.baidu.com"],
+    ["1.5k+ views  ·  2 years ago", null],
+    ["Shared from https://spam.example · 2 years ago", null],
+    [null, null],
+  ])("breadcrumbHost(%s) is %s", (breadcrumb, expected) => {
+    expect(breadcrumbHost(breadcrumb)).toBe(expected);
+  });
+
+  it("reads a GoTo result's site from its breadcrumb and a normal result's from its domain", () => {
+    expect(gotoItems.slice(0, 7).map(organicDomain)).toEqual(["www.mws.ltd.uk", "nuweigh.com.au", "libraweighing.co.uk", "www.griffith-elder.com", "caliberscales.wixsite.com", "www.scalesmart.com", null]);
+  });
+
+  it.each([
+    ["mws.ltd.uk", 1],
+    ["henerscale.com", 14],
+    ["ebay.co.uk", 13],
+  ])("ranks %s behind a GoTo link or not at %i", (lead, position) => {
+    expect(extractOrganicRank(gotoSerp, lead)).toEqual({ kind: "ranked", position });
+  });
+
+  it("a miss with unread links is an error, not Not Ranked", () => {
+    expect(extractOrganicRank(gotoSerp, "absent.co.uk")).toEqual({ kind: "error", fatal: false, statusCode: 0, message: "3 Google links could not be read, so the site may be among them" });
+  });
+
+  it("lists the links only a converter can read, in rank order", () => {
+    expect(unreadGotoUrls(gotoSerp)).toEqual(videoUrls);
+  });
+
+  it("converted links count like normal results; a link left unconverted still blocks Not Ranked", () => {
+    const two = withResolvedUrls(gotoSerp, new Map([[videoUrls[0]!, "https://www.youtube.com/watch?v=a"], [videoUrls[1]!, "https://www.youtube.com/watch?v=b"]]));
+    expect(extractOrganicRank(two, "youtube.com")).toEqual({ kind: "ranked", position: 7 });
+    expect(unreadGotoUrls(two)).toEqual([videoUrls[2]]);
+    expect(extractOrganicRank(two, "absent.co.uk")).toMatchObject({ kind: "error", message: "1 Google links could not be read, so the site may be among them" });
+
+    const all = withResolvedUrls(two, new Map([[videoUrls[2]!, "https://www.facebook.com/watch/1"]]));
+    expect(extractOrganicRank(all, "absent.co.uk")).toEqual({ kind: "ranked", position: 101 });
+    expect(extractOrganicRank(all, "facebook.com")).toEqual({ kind: "ranked", position: 16 });
+  });
+
+  it("withResolvedUrls leaves the input alone and skips a destination that is not a URL", () => {
+    const before = JSON.stringify(gotoSerp);
+    const out = withResolvedUrls(gotoSerp, new Map([[videoUrls[0]!, "not a url"]]));
+    expect(JSON.stringify(gotoSerp)).toBe(before);
+    expect(unreadGotoUrls(out)).toEqual(videoUrls);
   });
 });
